@@ -1,0 +1,52 @@
+{
+
+  "multispectral_raw": [
+    "fine_LST",
+    "blue",
+    "green",
+    "red",
+    "NIR",
+    "SWIR1",
+    "SWIR2"
+  ],
+
+  "multispectral_indices": [
+    "fine_LST",
+    "NDVI",
+    "MNDWI",
+    "ENDISI"
+  ],
+
+  "static": [
+    "file_LST",
+    "SVF",
+    "brightness",
+    "saturation",
+    "hue",
+    "vegetation",
+    "cold_spot_distance",
+    "buildings_mask",
+    "water_mask",
+    "mineralized",
+    "artificial",
+    "vegetalized"
+  ],
+
+  "dynamic": [
+    "fine_LST",
+    "illumination",
+    "irradiance",
+    "energy",
+    "brightness",
+    "saturation",
+    "hue",
+    "vegetation",
+    "cold_spot_distance",
+    "buildings_mask",
+    "water_mask",
+    "mineralized",
+    "artificial",
+    "vegetalized"
+  ]
+
+}

@@ -5,8 +5,7 @@ Author: Thibault Chardon
 Creation date: 2026-08-16
 '''
 
-from DeThermIn.data.datacube import *
-from DeThermIn.data import *
+from .datacube import *
 
 __all__ = [
     "DataCube", # class object for data

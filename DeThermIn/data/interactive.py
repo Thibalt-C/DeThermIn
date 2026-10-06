@@ -1,18 +1,21 @@
 from PIL import Image
 import io
 import base64
-import matplotlib.pyplot as plt
 import folium
+from xarray import DataArray, Dataset
 import numpy as np
-import json
+import matplotlib.pyplot as plt
+from typing import Union, Optional
+from ..metadata import available_areas
+from shapely.geometry import Point
+from pyproj.transformer import Transformer
 
-with open("DeThermIn/workflows/info.json", "rb") as f:
-    info = json.load(f)
-
-geofeatures_path = info["geofeatures_path"]
-data_blending_pickles = info["data_blending_pickles"]
-
-def to_base64(data_array, cmap='grey', vmin=None, vmax=None):
+def to_base64(
+        data_array : DataArray,
+        cmap : Optional[Union[str, plt.Colormap]] = 'grey',
+        vmin : Optional[float] = None,
+        vmax : Optional[float] = None
+) -> str :
 
     array = data_array.values
 
@@ -24,30 +27,17 @@ def to_base64(data_array, cmap='grey', vmin=None, vmax=None):
         if "vmax" in data_array.attrs["plot_kwargs"].keys():
             vmax = data_array.attrs["plot_kwargs"]["vmax"]
 
-    fig, ax = plt.subplots(figsize=(1, 1), dpi=1)
-    ax.axis('off')
-
-    im = ax.imshow(array, cmap=cmap, aspect='auto',vmin=vmin, vmax=vmax)
-    fig.canvas.draw()
-
-    img_data = np.frombuffer(fig.canvas.tostring_argb(), dtype=np.uint8)
-    img_data.shape = (fig.canvas.get_width_height()[::-1] + (4,))
-
-    plt.close(fig)
-
-    valid_mask = ~np.isnan(array)
-    min_val = np.nanmin(array)
-    max_val = np.nanmax(array)
+    valid_mask = np.isfinite(array)
+    min_val = np.nanmin(array) if vmin is None else vmin
+    max_val = np.nanmax(array) if vmax is None else vmax
 
     if min_val == max_val:
         normalized = np.ones_like(array, dtype=float)
     else:
         normalized = (array - min_val) / (max_val - min_val)
 
-    try:
+    if type(cmap) == str:
         cmap = plt.get_cmap(cmap)
-    except: # if from cmcrameri already formatted
-        pass
 
     rgba_float = cmap(normalized)
     rgba_uint8 = (rgba_float * 255).astype(np.uint8)
@@ -62,12 +52,16 @@ def to_base64(data_array, cmap='grey', vmin=None, vmax=None):
     img_str = base64.b64encode(buffer.getvalue()).decode('utf-8')
     path = f"data:image/png;base64,{img_str}"
 
-    plt.close('all')
-
     return path
 
 
-def add_dataset_layer(dataset, layer, map, cmap='grey', show=True):
+def add_dataset_layer(
+        dataset : Dataset,
+        layer : str,
+        folium_map : folium.Map,
+        cmap : Optional[Union[str, plt.Colormap]] = 'grey',
+        show : Optional[bool] = True
+):
 
     data_array = dataset[layer]
 
@@ -106,50 +100,52 @@ def add_dataset_layer(dataset, layer, map, cmap='grey', show=True):
         name = f"{name} [{min_val:.2f}, {max_val:.2f}{units}]"
 
     image = folium.raster_layers.ImageOverlay(image=img,
-                                              bounds = ((float(lat_min), float(lon_min)), (float(lat_max), float(lon_max))),
+                                              bounds = ((float(lat_min), float(lon_min)),
+                                                        (float(lat_max), float(lon_max))),
                                               interactive=True,
                                               name=name,
                                               show=show)
 
-    image.add_to(map)
+    image.add_to(folium_map)
 
     return
 
 
-def map_dataset(dataset):
+def map_dataset(dataset : Dataset) -> folium.Map :
 
+    x, y = float(dataset.x.mean()), float(dataset.y.mean())
+    lon, lat = Transformer.from_crs(dataset.rio.crs, "EPSG:4326", always_xy=True).transform(x,y)
+    zones = available_areas.where(available_areas.geometry.intersects(Point(lon,lat))).dropna().reset_index(drop=True)
+    country = np.unique(zones["country"].to_numpy())[0]
 
-    reproj = dataset.LST.rio.reproject(dst_crs="EPSG:4326")
-
-    if reproj.y.max() >= 51.0: # weak condition, can be more robust using the geofeatures
-        country = "NLD"
-    else:
-        country = "FRA"
-
-    map = folium.Map(location=[reproj.y.mean(), reproj.x.mean()], zoom_start=13, tiles="cartodb positron")
+    folium_map = folium.Map(location=[lat, lon], zoom_start=13)
 
     if country=='FRA':
         wms = folium.raster_layers.WmsTileLayer(url = "https://data.geopf.fr/wms-r",
-                                                layers =["HR.ORTHOIMAGERY.ORTHOPHOTOS"],
+                                                layers ="HR.ORTHOIMAGERY.ORTHOPHOTOS",
                                                 fmt = "image/jpeg",
                                                 version="1.3.0",
                                                 srs = "EPSG:4326",
                                                 name = "Ortho-image",
                                                 attr="Orthoimage ©IGN 2026")
-        wms.add_to(map)
+        wms.add_to(folium_map)
 
     if country=='NLD':
         wms = folium.raster_layers.WmsTileLayer(url="https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0",
-                                                layers=["Actueel_orthoHR"],
+                                                layers="Actueel_orthoHR",
                                                 fmt="image/jpeg",
                                                 srs="EPSG:4326",
                                                 name="Ortho-image",
                                                 attr="Orthoimage © Netherlands Space Agency"
                                                 )
-        wms.add_to(map)
+        wms.add_to(folium_map)
 
-    excluded_layers = ["mask", "blue", "green", "red", "NIR", "SWIR1", "SWIR2", "qc", "elevation", "azimuth"]
-    default_showed = ["LST", "SR_LST", "illumination", "irradiance", "energy", "NDVI"]
+    excluded_layers = ["mask", "blue", "green", "red", "NIR", "SWIR1", "SWIR2",
+                       "qc", "elevation", "azimuth",
+                       "LST_sunrise", "LST_next_sunrise",
+                       "thermal_zenith", "thermal_sunset",
+                       "LST_max", "diurnal_cycle"]
+    default_showed = ["coarse_LST", "fine_LST", "SR_LST", "illumination", "irradiance", "energy", "NDVI"]
 
     land_cover_ordered = np.array(["water_mask", "artificial", "vegetalized", "mineralized", "buildings_mask"])
 
@@ -161,10 +157,10 @@ def map_dataset(dataset):
     for layer in layers:
         if layer not in excluded_layers:
             try:
-                add_dataset_layer(dataset, layer, map, show=True if layer in default_showed else False)
+                add_dataset_layer(dataset, layer, folium_map, show=True if layer in default_showed else False)
             except:
                 pass
 
-    folium.LayerControl().add_to(map)
+    folium.LayerControl().add_to(folium_map)
 
-    return map
+    return folium_map

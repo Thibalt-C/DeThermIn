@@ -1,0 +1,36 @@
+{
+    "data_blending_path": "1 Pre-Processing/Data blending/",
+    "DTC_fitting_path": "2 Spatiotemporal Fusion/",
+    "fusion_path": "2 Spatiotemporal Fusion/",
+    "super_resolution_path": "3 Super Resolution/",
+    "ground_truth_path": "Ground truth LST/",
+    "training_path": "3 Super Resolution/",
+    "geofeatures_path": "#geofeatures/",
+
+    "data_blending_script": "data_blending_workflow.py",
+    "DTC_fitting_script": "DTC_fitting_workflow.py",
+    "fusion_script": "fusion_workflow.py",
+    "super_resolution_script": "sr_workflow.py",
+    "ground_truth_script": "ground_truth_assembler.py",
+    "training_script": "sr_trainer.py",
+    "training_features_file": "features.json",
+    "available_areas_file": "available_areas.geojson",
+
+    "lidar_metadata_path": "1 Pre-Processing/LIDAR/folders.json",
+    "data_blending_metadata_path": "1 Pre-Processing/Data blending/workflow_params.json",
+
+    "extensions": {
+        "lidar": "lidar",
+        "multispectral": "multispectral",
+        "blended_ancillary_data": "ancillary",
+        "geostationary": "geostationary",
+        "DTC-fitted": "geostationary-DTC",
+        "narrow-swath": "narrow-swath",
+        "fusioned_LSTs": "fusioned",
+        "blended_ancillary_and_LST": "blended",
+        "enriched_ancillary_data": "enriched",
+        "end_product": "DeThermIn",
+        "training_data": "TrainingReady",
+        "ground_truth": "GroundTruth"
+    }
+}

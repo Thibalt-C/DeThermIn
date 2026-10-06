@@ -1,0 +1,23 @@
+{
+    "resolution": "2.0",
+    "start_date": "2026-06-01",
+    "end_date": "2026-08-31",
+    "larger_bbox_size_km": "25000",
+    "DTC_alpha_1": "0.1",
+    "DTC_alpha_2": "0.0001",
+    "DTC_sunset_shift": "2.1",
+    "fusion_window_size": "15",
+    "fusion_alpha_time": "0.1",
+    "fusion_alpha_space": "0.5",
+    "fusion_k": "0.5",
+    "super_resolution_train_size": "0.8",
+    "super_resolution_valid_size": "0.2",
+    "super_resolution_max_epochs": "20",
+    "super_resolution_batch_size": "16",
+    "super_resolution_patch_size": "128",
+    "super_resolution_learning_rate": "0.001",
+    "super_resolution_lambda_ssim": "0.2",
+    "downloaded_data_path": "/Volumes/THIBALT/downloaded/",
+    "processed_data_path": "/Volumes/THIBALT/processed/",
+    "geostationary_data_path": "/Volumes/THIBALT/downloaded/pre-downloaded geostationary data/"
+}

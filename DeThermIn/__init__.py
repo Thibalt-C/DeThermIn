@@ -5,11 +5,6 @@ Author: Thibault Chardon
 Creation date: 2026-05-01
 '''
 
-from DeThermIn import *
-
-
-def __version__():
-    return "0.1.0"
-
-def __author__():
-    return "Thibault Chardon"
+from .data import DataCube, read_datacube
+from .workflows import *
+from .scripts import selection, set_parameters, train_ResUNet, predownload

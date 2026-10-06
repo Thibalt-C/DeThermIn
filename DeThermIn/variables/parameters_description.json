@@ -1,0 +1,23 @@
+{
+    "resolution": ["float", "Resolution of the ancillary data (in meters)"],
+    "start_date": ["str", "Lower bound of the time range for downloading thermal data (YYYY-MM-DD)"],
+    "end_date": ["str", "Higher bound of the time range for downloading thermal data (YYYY-MM-DD)"],
+    "larger_bbox_size_km": ["float", "Extent of the area considered for thermal data (in km)"],
+    "DTC_alpha_1": ["float", "Regularisation parameter for the DTC model: penalises non-monotonic decrease between the zenith and the end of the cycle"],
+    "DTC_alpha_2": ["float", "Regularisation parameter for the DTC model: penalises values at the thermal zenith (maximum LST of the day) lower than the observed maximum LST"],
+    "DTC_sunset_shift": ["float", "Hyper-parameter for the DTC model: defines the thermal sunset (limit between day/night conditions) relative to the actual sunset (the Sun goes below the horizon). The shift is negative."],
+    "fusion_window_size": ["int", "Size of the sliding window used for spatio-temporal unmixing."],
+    "fusion_alpha_time": ["float", "Hyper-parameter for the spatio-temporal unmixing: Weights the importance of the distance to the central pixel of the sliding window."],
+    "fusion_alpha_space": ["float", "Hyper-parameter for the spatio-temporal unmixing: Weights the importance of the difference of time of the day between the target coarse LST and the fine LSTs used."],
+    "fusion_k": ["float", "Hyper-parameter for the spatio-temporal unmixing: Changes the tolerance in terms of the standard deviation of the considered features (NDVI, NDWI, ENDISI, LST) defining similarity."],
+    "super_resolution_train_size": ["float", "Size of the training and validation sets compared to the testing set for the super-resolution model. In proportion between 0 and 1."],
+    "super_resolution_valid_size": ["float", "Size of the validation set compared to the training set. Between 0 and 1."],
+    "super_resolution_max_epochs": ["int", "Maximum number of epochs to iterate for the super-resolution model."],
+    "super_resolution_batch_size": ["int", "Batch size for the super-resolution model."],
+    "super_resolution_patch_size": ["int", "Size in pixels of the patches to be used for the super-resolution model."],
+    "super_resolution_learning_rate": ["float", "Learning rate of the super-resolution model."],
+    "super_resolution_lambda_ssim": ["float", "Hyper-parameter of the super-resolution model, weighting the SSIM loss."],
+    "downloaded_data_path": ["str", "Path to the downloaded data."],
+    "processed_data_path": ["str", "Path to the processed data."],
+    "geostationary_data_path": ["str", "Path to the pre-downlaoded geostationary data."]
+}

@@ -1,0 +1,8 @@
+{
+    "ecostress_script": "ecostress_workflow.py",
+    "ecostress_path": "../ECOSTRESS/",
+    "sentinel2_script": "s2_workflow.py",
+    "sentinel2_path": "../SENTINEL2_L2A/",
+    "lidar_script": "lidar_workflow.py",
+    "lidar_path": "../LIDAR/"
+}

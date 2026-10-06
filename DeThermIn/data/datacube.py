@@ -1,17 +1,20 @@
-import cartopy.mpl.geoaxes
-import pandas as pd
-from DeThermIn.data.enricher import *
-from DeThermIn.data.utils import *
-from DeThermIn.data.visualisation import *
-from DeThermIn.data.interactive import *
+from .enricher import enrich_dataset
+from .utils import *
+from .visualisation import *
+from .interactive import *
+from ..metadata import extensions
 from copy import deepcopy
+from shapely.geometry import shape
+from rasterio.features import shapes
+import geopandas as gpd
 import os
 import datetime
 import pickle
 import xarray as xr
 import rioxarray
 from rasterio.enums import Resampling
-import matplotlib
+from matplotlib.collections import QuadMesh
+from cartopy.mpl.geoaxes import GeoAxes, GeoAxesSubplot
 from typing import Optional, Union, Tuple
 
 
@@ -115,7 +118,7 @@ class DataCube:
         self.status = find_status(self.filepath)
         self.name = find_name(self.filepath, self.status)
         self.ngigabytes = self.data.nbytes / 1e9
-        self.enriched = True if (self.status == "ENRICHED") | (self.status == "TRAININGREADY") else False
+        self.enriched = True if (self.status == extensions["enriched_ancillary_data"]) | (self.status == extensions["training_data"]) else False
 
         return
 
@@ -161,7 +164,7 @@ class DataCube:
 
         dc = inplace_rule(self, inplace)
 
-        dc.data = dataset_compressor(dc.data)
+        dc.data = dataset_compressor(dc.data, dc.filepath)
 
         return dc
 
@@ -170,9 +173,9 @@ class DataCube:
             self,
             layer : str,
             show_scale : Optional[bool] = True,
-            ax : Optional[Union[cartopy.mpl.geoaxes.GeoAxes, cartopy.mpl.geoaxes.GeoAxesSubplot]] = None,
+            ax : Optional[Union[GeoAxes, GeoAxesSubplot]] = None,
             **kwargs
-    ) -> Union[cartopy.mpl.geoaxes.GeoAxes, Tuple[cartopy.mpl.geoaxes.GeoAxes, matplotlib.collections.QuadMesh], None]:
+    ) -> Union[GeoAxes, Tuple[GeoAxes, QuadMesh], None] :
         """
         Plots a specific layer from the datacube, supporting both spatial and temporal layers. This method allows visualization of
         orthophotos, spatial datasets, or time series data depending on the specified layer and its dimensions within the datacube.
@@ -234,7 +237,7 @@ class DataCube:
             self,
             timestamp : Optional[datetime.datetime] = None,
             save : Optional[bool] = True
-    ) -> folium.Map:
+    ) -> folium.Map :
         """
         Generates an interactive map for a specific timestamp and optionally saves it as an HTML file.
 
@@ -270,7 +273,7 @@ class DataCube:
     def find_attached_datacubes(
             self,
             mode : Optional[str] = 'graph'
-    ):
+    ) -> Union[dict, any]:
         """
         Find and return data cubes attached to the current instance based on the specified mode.
 
@@ -310,7 +313,7 @@ class DataCube:
 
         if mode == 'graph':
             try:
-                from DeThermIn.data.workflow_graph import get_workflow_graph
+                from .workflow_graph import get_workflow_graph
                 return get_workflow_graph(attached)
             except:
                 mode = 'dict'
@@ -336,7 +339,7 @@ class DataCube:
         return
 
 
-    def fusion(
+    def add_time_series(
             self,
             temporal_datacube,
             inplace : Optional[bool] = False
@@ -370,12 +373,16 @@ class DataCube:
 
         dc = inplace_rule(self, inplace)
 
+        for layer in temporal_datacube.data.data_vars: # handle boolean values
+            if temporal_datacube.data[layer].dtype == "bool":
+                temporal_datacube.data = temporal_datacube.data.drop_vars(layer)
+
         temporal_datacube.data = temporal_datacube.data.rio.clip_box(*dc.data.rio.bounds(), crs=dc.data.rio.crs)
         temporal_datacube.data = temporal_datacube.data.rio.reproject_match(dc.data, resampling=Resampling.bilinear)
 
         dc.data = xr.merge([dc.data, temporal_datacube.data])
 
-        dc.update_status("FUSIONED")
+        dc.update_status(extensions["blended_ancillary_and_LST"])
 
         dc.compress()
         dc.save()
@@ -414,25 +421,14 @@ class DataCube:
         if self.enriched:
             raise Exception("DataCube is already enriched.")
 
-        if self.status != "FUSIONED": # to reactivate later
-            raise Exception(f"Wrong status ({self.status}). You can only use `enrich` for a FUSIONED datacube (try to use `fusion` first)")
+        if self.status != extensions["blended_ancillary_and_LST"]: # to reactivate later
+            raise Exception(f"Wrong status ({self.status}). You can only use `enrich` for a {extensions["blended_ancillary_and_LST"]} datacube (try to use `add_time_series` first)")
 
         dc = inplace_rule(self, inplace)
 
-        if verbose:
-            print("Getting extra layers (HSV channels, distance grids)...")
-        dc.data = get_distance_grids(dc.data)
-        dc.data = get_hsv_channels(dc.data)
+        dc.data = enrich_dataset(dc.data, verbose=verbose)
 
-        dc.data = get_illumination(dc.data, verbose=verbose)
-
-        dc.data = get_irradiance_loading(dc.data, time_window=4, frequency=0.25, verbose=verbose)
-
-        dc.data = rebuild_shadow(dc.data, verbose=verbose)
-
-        dc.data = get_irradiance(dc.data, verbose=verbose)
-
-        dc.update_status("ENRICHED")
+        dc.update_status(extensions["enriched_ancillary_data"])
 
         dc.compress()
         dc.save()
@@ -442,7 +438,7 @@ class DataCube:
 
     def to_train_datacube(
             self,
-            ground_truth_dataset : xr.Dataset,
+            ground_truth_datacube,
             inplace : Optional[bool] = True
     ):
         """
@@ -467,9 +463,9 @@ class DataCube:
 
         dc = inplace_rule(self, inplace)
 
-        dc.data = xr.merge([ground_truth_dataset, dc.data])
+        dc.data["LST_ground"] = ground_truth_datacube.data["LST_ground"].rio.reproject_match(dc.data)
 
-        dc.update_status("TRAININGREADY")
+        dc.update_status(extensions["training_data"])
 
         return dc
 
@@ -479,13 +475,44 @@ class DataCube:
         Trains a Super-Resolution model using the current datacube, which must have the TRAININGREADY status.
         """
 
-        if self.status != "TRAININGREADY":
-            raise Exception(f"Wrong status ({self.status}). You can only use `train` for a TRAININGREADY datacube.")
+        if self.status != extensions["training_data"]:
+            raise Exception(f"Wrong status ({self.status}). You can only use `train` for a {extensions["training_data"]} datacube.")
 
-        from DeThermIn.workflows import SR_trainer  # import here to avoid circular imports
-        SR_trainer.train(self.filepath)
+        from ..workflows import Trainer  # import here to avoid circular imports
+        Trainer.train(self.filepath)
 
         return
+
+
+    def get_gdf(self):
+        """
+        Generates a `geopandas.GeoDataFrame` from the current datacube's shape.
+        Requires to have defined a 'mask' layer beforehand.
+
+        Returns:
+        ----------
+        gdf : geopandas.GeoDataFrame
+            Geofile corresponding to the valid pixels of the datacube.
+        """
+
+        if 'mask' in self.data.data_vars:
+            mask = self.data.mask.values
+        else:
+            raise KeyError("Unable to get the geodataframe.")
+
+        geoms = [
+            shape(geom)
+            for geom, value in shapes(
+                mask.astype("uint8"),
+                mask=mask,
+                transform=self.data.rio.transform()
+            )
+            if value == 1
+        ]
+
+        gdf = gpd.GeoDataFrame(geometry=geoms, crs=self.data.rio.crs).to_crs("EPSG:4326")
+
+        return gdf
 
 
 def read_datacube(filepath : str) -> DataCube:

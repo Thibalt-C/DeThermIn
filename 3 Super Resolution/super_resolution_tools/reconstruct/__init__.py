@@ -1,0 +1,3 @@
+from .linear_reconstruction import process as linear_regression
+from .random_forest_reconstruction import process as random_forest_regression
+from .ResUNet_reconstruction import process as DL_regression

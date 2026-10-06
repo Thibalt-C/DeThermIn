@@ -1,0 +1,102 @@
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.base import BaseEstimator, RegressorMixin
+from .preprocessing import get_scaler, format_for_deep_learning
+from .error_quantifiers import rmse
+from .CNNs import extract_patches, CustomDataset, reconstruct_DL
+from torch.utils.data import DataLoader
+import numpy as np
+import torch
+import rioxarray
+
+
+class CustomLinearRegression(BaseEstimator, RegressorMixin):
+    def __init__(self, learning_rate=0.1, max_iterations=1000, step_threshold=1e-6):
+        self.learning_rate = learning_rate
+        self.max_iterations = max_iterations
+        self.step_threshold = step_threshold
+        self.weights = None
+        self.train_errors = []
+
+    def fit(self, X, y):
+
+        # scale
+        self.scaler = get_scaler(X)
+        X = self.scaler.fit_transform(X)
+
+        # Add bias term
+        X = np.concatenate([X, np.ones((X.shape[0], 1))], axis=1)
+        self.weights = np.random.randn(X.shape[1])
+        self.train_errors = [np.inf]
+
+        for i in range(self.max_iterations):
+            y_hat = np.dot(X, self.weights)
+            self.weights -= self.learning_rate * np.dot(X.T, (y_hat - y.squeeze())) / len(y)
+            train_error = rmse(y.squeeze(), y_hat)
+            self.train_errors.append(train_error)
+            if self.train_errors[-2] - self.train_errors[-1] < self.step_threshold:
+                break
+        return self
+
+    def predict(self, X):
+        X = self.scaler.transform(X)
+        if X.shape[1] == len(self.weights) - 1:
+            X = np.concatenate([X, np.ones((X.shape[0], 1))], axis=1)
+        return np.dot(X, self.weights)
+
+    def score(self, X, y):
+        y_pred = self.predict(X)
+        return -rmse(y.squeeze(), y_pred)  # Negative RMSE for minimization
+
+
+
+class CustomRandomForestRegressor(BaseEstimator, RegressorMixin):
+
+    def __init__(self, n_estimators=10, max_depth=10, max_features=None):
+        self.n_estimators = n_estimators
+        self.max_depth = max_depth
+        self.max_features = max_features
+        self.regressor = RandomForestRegressor(n_estimators=self.n_estimators,
+                                               max_depth=self.max_depth,
+                                               max_features=self.max_features)
+
+    def fit(self, X, y):
+        self.scaler = get_scaler(X)
+        X = self.scaler.fit_transform(X)
+        self.regressor.fit(X, y)
+        return self
+
+    def predict(self, X):
+        X = self.scaler.transform(X)
+        y_pred = self.regressor.predict(X)
+        return y_pred
+
+    def score(self, X, y):
+        y_pred = self.predict(X)
+        return -rmse(y.squeeze(), y_pred)  # Negative RMSE for minimization
+
+
+
+class trained_UNet():
+
+    def __init__(self, model, features, batch_size, epochs, patch_size, scaler):
+        self.features = features
+        self.batch_size = batch_size
+        self.patch_size = patch_size
+        self.stride = self.patch_size//2
+        self.epochs = epochs
+        self.regressor = model
+        self.scaler = scaler
+
+    def predict(self, dataset):
+        X, _ = format_for_deep_learning(dataset, self.features, scaler=self.scaler, no_y=True)
+        y = np.zeros((X.shape[0], X.shape[1], 1))
+        X, y, valid_patches = extract_patches(X, y, patch_size=self.patch_size, stride=self.stride)
+        X = torch.tensor(X)
+        y = torch.tensor(y)
+        dataloader = DataLoader(CustomDataset(X,y),
+                                batch_size=self.batch_size, shuffle=False,
+                                num_workers=0, persistent_workers=False)
+        H, W = dataset.rio.shape
+        y_pred = reconstruct_DL(self.regressor, dataloader, self.patch_size, self.stride, H, W, valid_patches)
+
+        return y_pred

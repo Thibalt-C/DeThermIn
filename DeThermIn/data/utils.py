@@ -49,7 +49,7 @@ def find_name(filename, status):
     return name
 
 
-def dataset_compressor(dataset, verbose=True):
+def dataset_compressor(dataset, name=None, verbose=True):
 
     original_size = dataset.nbytes / 1e9 # GB
 
@@ -62,7 +62,7 @@ def dataset_compressor(dataset, verbose=True):
 
         unique = np.unique(dataset[layer].values)
         valid_mask = ~np.isnan(dataset[layer].values)
-        if len(unique[np.isfinite(unique)]) <= 2:
+        if (len(unique[np.isfinite(unique)]) <= 2):
             dataset[layer] = dataset[layer].astype("bool")
             dataset[layer] = dataset[layer].where(valid_mask, False)
 
@@ -74,6 +74,9 @@ def dataset_compressor(dataset, verbose=True):
     compressed_size = dataset.nbytes / 1e9
 
     if verbose:
-        print(f"{original_size:.2f} GB -> {compressed_size:.2f} GB")
+        if name is not None:
+            print(f"{original_size:.2f} GB -> {compressed_size:.2f} GB ({name})")
+        else:
+            print(f"{original_size:.2f} GB -> {compressed_size:.2f} GB")
 
     return dataset

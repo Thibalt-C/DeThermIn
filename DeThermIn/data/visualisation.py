@@ -8,7 +8,7 @@ import pandas as pd
 import matplotlib
 import numpy as np
 import matplotlib.patheffects as path_effects
-
+from IPython import get_ipython
 
 matplotlib.rcParams['animation.embed_limit'] = 0.5 * 1e9 # 500 MB
 
@@ -109,8 +109,11 @@ def plot_timeseries(dataset, attribute, gridlines=True, save=False, **kwargs):
     plt.tight_layout()
     if save:
         ani.save("LST.gif", writer="pillow", fps=5)
-    display(HTML(ani.to_jshtml()))
-    plt.close(fig)
+    if get_ipython() is not None:
+        display(HTML(ani.to_jshtml()))
+        plt.close(fig)
+    else:
+        plt.show()
 
     return
 

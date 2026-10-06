@@ -1,4 +1,5 @@
 from graphviz import Digraph
+from ..metadata import extensions
 
 def add_start(dot):
     dot.node("start", "START", shape="ellipse", style="filled", fillcolor="black", fontcolor="white")
@@ -7,90 +8,77 @@ def add_start(dot):
 
 # ORIGINAL DATA
 
-def add_LSR_HTR(dot, start, current=False):
-    dot.node("LSR-HTR", "LSR-HTR", shape="box", style="rounded", fontcolor="red" if current else "black")
-    dot.edge(start, "LSR-HTR")
-    return "LSR-HTR"
+def add_lidar(dot, start, name=extensions["lidar"], current=False):
+    dot.node(name, name, shape="box", style="rounded", fontcolor="red" if current else "black")
+    dot.edge(start, name)
+    return name
 
-def add_VHSR(dot, start, current=False):
-    dot.node("VHSR", "VHSR", shape="box", style="rounded", fontcolor="red" if current else "black")
-    dot.edge(start, "VHSR")
-    return "VHSR"
+def add_multispectral(dot, start, name=extensions["multispectral"], current=False):
+    dot.node(name, name, shape="box", style="rounded", fontcolor="red" if current else "black")
+    dot.edge(start, name)
+    return name
 
-def add_HSR(dot, start, current=False):
-    dot.node("HSR", "HSR", shape="box", style="rounded", fontcolor="red" if current else "black")
-    dot.edge(start, "HSR")
-    return "HSR"
+def add_narrow_swath(dot, start, name=extensions["narrow-swath"], current=False):
+    dot.node(name, name, shape="box", style="rounded", fontcolor="red" if current else "black")
+    dot.edge(start, name)
+    return name
 
-def add_MSR_LTR(dot, start, current=False):
-    dot.node("MSR-LTR", "MSR-LTR", shape="box", style="rounded", fontcolor="red" if current else "black")
-    dot.edge(start, "MSR-LTR")
-    return "MSR-LTR"
+def add_geostationary(dot, start, name=extensions["geostationary"], current=False):
+    dot.node(name, name, shape="box", style="rounded", fontcolor="red" if current else "black")
+    dot.edge(start, name)
+    return name
 
-def add_VLSR_VHTR(dot, start, current=False):
-    dot.node("VLSR-VHTR", "VLSR-VHTR", shape="box", style="rounded", fontcolor="red" if current else "black")
-    dot.edge(start, "VLSR-VHTR")
-    return "VLSR-VHTR"
+# PRE PROCESSING
 
-# DATA BLENDING
-
-def add_blending_workflow(dot, datacubes, current=False):
-    dot.node("BLENDED", "BLENDED", shape="box", style="rounded", fontcolor="red" if current else "black")
-    for type_doc in ["VHSR", "HSR"]:
+def add_blending_workflow(dot, datacubes, name=extensions["blended_ancillary_data"], current=False):
+    dot.node(name, name, shape="box", style="rounded", fontcolor="red" if current else "black")
+    for type_doc in [extensions["lidar"], extensions["multispectral"]]:
         if type_doc in datacubes.keys():
-            dot.edge(type_doc, "BLENDED")
-    return "BLENDED"
+            dot.edge(type_doc, name)
+    return name
 
 
 # SPATIO-TEMPORAL FUSION
 
-def add_DTC_fitted(dot, vlsr_vhtr, current=False):
-    dot.node("VLSR-VHTR-DTC", "VLSR-VHTR-DTC", shape="box", style="rounded", fontcolor="red" if current else "black")
-    if vlsr_vhtr is not None:
-        dot.edge(vlsr_vhtr, "VLSR-VHTR-DTC")
-    return "VLSR-VHTR-DTC"
+def add_DTC_fitted(dot, geostationary, name=extensions["DTC-fitted"], current=False):
+    dot.node(name, name, shape="box", style="rounded", fontcolor="red" if current else "black")
+    if geostationary is not None:
+        dot.edge(geostationary, name)
+    return name
 
-def add_LSR_VHTR(dot, dtc_fitted, lsr_htr, current=False):
-    dot.node("LSR-VHTR", "LSR-VHTR", shape="box", style="rounded", fontcolor="red" if current else "black")
+def add_fusioned(dot, narrow_swath, dtc_fitted, name=extensions["fusioned_LSTs"], current=False):
+    dot.node(name, name, shape="box", style="rounded", fontcolor="red" if current else "black")
+    if narrow_swath is not None:
+        dot.edge(narrow_swath, name)
     if dtc_fitted is not None:
-        dot.edge(dtc_fitted, "LSR-VHTR")
-    if lsr_htr is not None:
-        dot.edge(lsr_htr, "LSR-VHTR")
-    return "LSR-VHTR"
+        dot.edge(dtc_fitted, name)
+    return name
 
-def add_MSR_VHTR(dot, msr_ltr, lsr_vhtr, current=False):
-    dot.node("MSR-VHTR", "MSR-VHTR", shape="box", style="rounded", fontcolor="red" if current else "black")
-    if msr_ltr is not None:
-        dot.edge(msr_ltr, "MSR-VHTR")
-    if lsr_vhtr is not None:
-        dot.edge(lsr_vhtr, "MSR-VHTR")
-    return "MSR-VHTR"
-
-def add_fusioned(dot, msr_vhtr, blended, current=False):
-    dot.node("fusioned", "FUSIONED", shape="box", style="rounded", fontcolor="red" if current else "black")
-    if msr_vhtr is not None:
-        dot.edge(msr_vhtr, "fusioned")
-    if blended is not None:
-        dot.edge(blended, "fusioned")
-    return "fusioned"
+def add_blended(dot, fusioned, ancillary, name=extensions["blended_ancillary_and_LST"], current=False):
+    dot.node(name, name, shape="box", style="rounded", fontcolor="red" if current else "black")
+    if fusioned is not None:
+        dot.edge(fusioned, name)
+    if ancillary is not None:
+        dot.edge(ancillary, name)
+    return name
 
 
 # SUPER-RESOLUTION
 
-def add_enriched(dot, last, current=False):
-    dot.node("enriched", "ENRICHED", shape="box", style="rounded", fontcolor="red" if current else "black")
-    dot.edge(last, "enriched")
-    return "enriched"
+def add_enriched(dot, last, name=extensions["enriched_ancillary_data"], current=False):
+    dot.node(name, name, shape="box", style="rounded", fontcolor="red" if current else "black")
+    dot.edge(last, name)
+    return name
 
-def add_training_ready(dot, last, current=False):
-    dot.node("TRAININGREADY", "TRAININGREADY", shape="box", style="rounded", fontcolor="red" if current else "black")
-    dot.edge(last, "TRAININGREADY")
-    return "TRAININGREADY"
+def add_training_ready(dot, last, name=extensions["training_data"], current=False):
+    dot.node(name, name, shape="box", style="rounded", fontcolor="red" if current else "black")
+    dot.edge(last, name)
+    return name
 
-def add_DeThermIn(dot, last, current=False):
-    dot.node("DeThermIn", "DeThermIn", shape="ellipse", fontcolor="red" if current else "black")
-    dot.edge(last, "DeThermIn")
-    return "DeThermIn"
+def add_DeThermIn(dot, last, name=extensions["end_product"], current=False):
+    dot.node(name, name, shape="ellipse", fontcolor="red" if current else "black")
+    dot.edge(last, name)
+    return name
 
 def get_workflow_graph(datacubes):
 
@@ -101,64 +89,54 @@ def get_workflow_graph(datacubes):
 
     # Original data
 
-    if "VHSR" in datacubes.keys():
-        vhsr = add_VHSR(dot, start, current=datacubes["VHSR"]["current"])
+    if extensions["lidar"] in datacubes.keys():
+        lidar = add_lidar(dot, start, current=datacubes[extensions["lidar"]]["current"])
 
-    if "HSR" in datacubes.keys():
-        hsr = add_HSR(dot, start, current=datacubes["HSR"]["current"])
+    if extensions["multispectral"] in datacubes.keys():
+        multispectral = add_multispectral(dot, start, current=datacubes[extensions["multispectral"]]["current"])
 
-    if "MSR-LTR" in datacubes.keys():
-        msr_ltr = add_MSR_LTR(dot, start, current=datacubes["MSR-LTR"]["current"])
+    if extensions["narrow-swath"] in datacubes.keys():
+        narrow_swath = add_narrow_swath(dot, start, current=datacubes[extensions["narrow-swath"]]["current"])
     else:
-        msr_ltr = None
+        narrow_swath = None
 
-    if "VLSR-VHTR" in datacubes.keys():
-        vlsr_vhtr = add_VLSR_VHTR(dot, start, current=datacubes["VLSR-VHTR"]["current"])
+    if extensions["geostationary"] in datacubes.keys():
+        geostationary = add_geostationary(dot, start, current=datacubes[extensions["geostationary"]]["current"])
     else:
-        vlsr_vhtr = None
+        geostationary = None
 
-    if "LSR-HTR" in datacubes.keys():
-        lsr_htr = add_LSR_HTR(dot, start, current=datacubes["LSR-HTR"]["current"])
+    if extensions["blended_ancillary_data"] in datacubes.keys():
+        ancillary = add_blending_workflow(dot, datacubes, current=datacubes[extensions["blended_ancillary_data"]]["current"])
+        last = ancillary
     else:
-        lsr_htr = None
-
-    if "BLENDED" in datacubes.keys():
-        blended = add_blending_workflow(dot, datacubes, current=datacubes["BLENDED"]["current"])
-        last = blended
-    else:
-        blended = None
+        ancillary = None
 
 
     # Spatio-temporal fusion
 
-    if "VLSR-VHTR-DTC" in datacubes.keys():
-        dtc_fitted = add_DTC_fitted(dot, vlsr_vhtr, current=datacubes["VLSR-VHTR-DTC"]["current"])
+    if extensions["DTC-fitted"] in datacubes.keys():
+        dtc_fitted = add_DTC_fitted(dot, geostationary, current=datacubes[extensions["DTC-fitted"]]["current"])
     else:
         dtc_fitted = None
 
-    if "LSR-VHTR" in datacubes.keys():
-        lsr_vhtr = add_LSR_VHTR(dot, dtc_fitted, lsr_htr, current=datacubes["LSR-VHTR"]["current"])
+    if extensions["fusioned_LSTs"] in datacubes.keys():
+        fusioned = add_fusioned(dot, narrow_swath, dtc_fitted, current=datacubes[extensions["fusioned_LSTs"]]["current"])
     else:
-        lsr_vhtr = None
+        fusioned = None
 
-    if "MSR-VHTR" in datacubes.keys():
-        msr_vhtr = add_MSR_VHTR(dot, msr_ltr, lsr_vhtr, current=datacubes["MSR-VHTR"]["current"])
-    else:
-        msr_vhtr = None
+    if extensions["blended_ancillary_and_LST"] in datacubes.keys():
+        blended = add_blended(dot, fusioned, ancillary, current=datacubes[extensions["blended_ancillary_and_LST"]]["current"])
+        last = blended
 
-    if "FUSIONED" in datacubes.keys():
-        fusioned = add_fusioned(dot, msr_vhtr, blended, current=datacubes["FUSIONED"]["current"])
-        last = fusioned
-
-    if "ENRICHED" in datacubes.keys():
-        enriched = add_enriched(dot, last, current=datacubes["ENRICHED"]["current"])
+    if extensions["enriched_ancillary_data"] in datacubes.keys():
+        enriched = add_enriched(dot, last, current=datacubes[extensions["enriched_ancillary_data"]]["current"])
         last = enriched
 
-    if "TRAININGREADY" in datacubes.keys():
-        training_ready = add_training_ready(dot, last, current=datacubes["TRAININGREADY"]["current"])
+    if extensions["training_data"] in datacubes.keys():
+        training_ready = add_training_ready(dot, last, current=datacubes[extensions["training_data"]]["current"])
         last = training_ready
 
-    if "DeThermIn" in datacubes.keys():
-        DeThermIn = add_DeThermIn(dot, last, current=datacubes["DeThermIn"]["current"])
+    if extensions["end_product"] in datacubes.keys():
+        DeThermIn = add_DeThermIn(dot, last, current=datacubes[extensions["end_product"]]["current"])
 
     return dot
