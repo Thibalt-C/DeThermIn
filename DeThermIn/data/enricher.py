@@ -29,6 +29,9 @@ def get_sun_pos(
         dataset : xr.Dataset,
         loc : pvlib.location.Location
 ) -> xr.Dataset :
+    """
+    Adds Sun elevation and azimuth angles to the dataset for each timestamp it contains.
+    """
 
     sun_pos = loc.get_solarposition(dataset.time.values)
 
@@ -97,6 +100,10 @@ def compute_irradiance(
         loc : pvlib.location.Location,
         time_axis : pd.DatetimeIndex,
 ) -> np.ndarray :
+    """
+    Computes the irradiance for a given area (dataset) and a given time range (time_axis).
+    Requires a computed shadow corresponding to the time range, as well as a pvlib.location.Location object.
+    """
 
     sun_pos = loc.get_solarposition(time_axis)
     cs_irradiance_df = loc.get_clearsky(time_axis)
@@ -161,7 +168,7 @@ def get_irradiance(
         dataset : xr.Dataset
 ) -> xr.Dataset :
     """
-    Aims to compute the total irradiance per pixel for each timestamp.
+    Aims to compute the total irradiance per pixel for each timestamp of the dataset.
     """
 
     loc = get_sun_loc(dataset)
@@ -186,19 +193,27 @@ def get_irradiated_energy(
         frequency : float, # hours
         verbose : Optional[bool] = True
 ) -> xr.Dataset :
+    """
+    Aims to compute the irradiated energy per pixel for each timestamp of the dataset.
+    The irradiated energy is a time integration of the irradiance, given a time window and a frequency.
+    """
 
     loc = get_sun_loc(dataset)
 
-    dataset["energy"] = xr.DataArray(np.full((len(dataset.time), len(dataset.y), len(dataset.x)), np.nan),
+    name = f"energy_{time_window}h"
+
+    dataset[name] = xr.DataArray(np.full((len(dataset.time), len(dataset.y), len(dataset.x)), np.nan),
                                      dims=["time", "y", "x"],
                                      coords={"time": dataset.time, "y": dataset.y, "x": dataset.x},
-                                     attrs={"standard_name": "Irradiated energy",
-                                            "units": "MJ/m^2",
+                                     attrs={"standard_name": f"Irradiated energy, last {time_window}h",
+                                            "units": "kWh/m^2",
                                             "description": f"Irradiated energy for clear sky conditions in a time window of {time_window} hours, computed using a {frequency}-hour frequency",
                                             "plot_kwargs": {"cmap": "jet"}
                                             })
 
     iterator = tqdm(enumerate(dataset.time), total=len(dataset.time), desc=f"Computing clear sky irradiated energy (last {time_window} hours)") if verbose else enumerate(dataset.time)
+
+    time_window += 1  # to include the last hour in the integral
 
     for n,t in iterator:
 
@@ -226,8 +241,8 @@ def get_irradiated_energy(
 
         irrad = compute_irradiance(dataset, shadows, loc, time_axis)
 
-        energies = irrad * (frequency * 3600) / 1e6 # to MJ/m^2
-        dataset["energy"].data[n,:,:] = xr.DataArray(energies,
+        energies = irrad * (frequency) / 1e3 # to kWh/m^2
+        dataset[name].data[n,:,:] = xr.DataArray(energies,
                                                      dims=["subtime", "y", "x"]
                                                      ).sum("subtime")
         del energies, shadows, irrad
@@ -236,6 +251,10 @@ def get_irradiated_energy(
 
 
 def get_illumination(dataset, frequency=0.25, verbose=True):
+    """
+    Computes the daily illumination for each pixel of the dataset.
+    Shadows are computed with a given frequency and summed to obtain the illumination.
+    """
 
     loc = get_sun_loc(dataset)
 
@@ -275,6 +294,9 @@ def get_illumination(dataset, frequency=0.25, verbose=True):
 
 
 def distance_grid(dataset, feature, true_value, type_grid=None):
+    """
+    Computes a distance grid for a given feature (boolean mask).
+    """
 
     if type_grid == "not_equal":
         mask = dataset[feature].values != true_value
@@ -302,6 +324,9 @@ def get_distance_grids(dataset, vegetation_threshold=5):
 
 
 def get_hsv_channels(dataset):
+    """
+    Computes the HSV channels for each pixel of the dataset's orthoimage.
+    """
 
     rgb_array = dataset.orthoimage.values
 
@@ -328,6 +353,9 @@ def enrich_dataset(
         dataset : xr.Dataset,
         verbose : Optional[bool] = True
 ) -> xr.Dataset :
+    """
+    Computes the extra layers of the dataset.
+    """
 
     if verbose:
         print("Getting extra layers (HSV channels, distance grids)...")
@@ -336,7 +364,9 @@ def enrich_dataset(
 
     dataset = get_illumination(dataset, verbose=verbose)
 
-    dataset = get_irradiated_energy(dataset, time_window=4, frequency=0.25, verbose=verbose)
+    dataset = get_irradiated_energy(dataset, time_window=1, frequency=1/6, verbose=verbose)
+    dataset = get_irradiated_energy(dataset, time_window=2, frequency=1/6, verbose=verbose)
+    dataset = get_irradiated_energy(dataset, time_window=3, frequency=1/6, verbose=verbose)
 
     dataset = rebuild_shadow(dataset, verbose=verbose)
 

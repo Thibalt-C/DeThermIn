@@ -16,7 +16,7 @@
     "super_resolution_batch_size": "16",
     "super_resolution_patch_size": "128",
     "super_resolution_learning_rate": "0.001",
-    "super_resolution_lambda_ssim": "0.2",
+    "super_resolution_lambda_ssim": "0.0",
     "downloaded_data_path": "/Volumes/THIBALT/downloaded/",
     "processed_data_path": "/Volumes/THIBALT/processed/",
     "geostationary_data_path": "/Volumes/THIBALT/downloaded/pre-downloaded geostationary data/"

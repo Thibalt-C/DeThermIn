@@ -18,7 +18,7 @@
   ],
 
   "static": [
-    "file_LST",
+    "fine_LST",
     "SVF",
     "brightness",
     "saturation",
@@ -36,7 +36,9 @@
     "fine_LST",
     "illumination",
     "irradiance",
-    "energy",
+    "energy_1h",
+    "energy_2h",
+    "energy_3h",
     "brightness",
     "saturation",
     "hue",

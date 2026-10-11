@@ -1,4 +1,4 @@
-from super_resolution_tools import DL_regression
+from super_resolution_tools import dl_regression
 import pickle
 import datetime
 import os
@@ -12,8 +12,8 @@ def main():
 
     dataset_path = sys.argv[1]
     features_file = sys.argv[2]
-    train_size = float(sys.argv[3])
-    valid_size = float(sys.argv[4])
+    #train_size = float(sys.argv[3])
+    #valid_size = float(sys.argv[4])
     max_epochs = int(sys.argv[5])
     batch_size = int(sys.argv[6])
     patch_size = int(sys.argv[7])
@@ -31,23 +31,29 @@ def main():
         features_lists = json.load(f)
 
     for key, features in features_lists.items():
-        print(f"\nTraining for features set '{key}': {str(features)}")
-        model , result = DL_regression(sample, features,
-                                       train_size=train_size,
-                                       valid_size=valid_size,
-                                       epochs=max_epochs,
-                                       batch_size=batch_size,
-                                       patch_size=patch_size,
-                                       learning_rate=learning_rate,
-                                       lambda_ssim=lambda_ssim,
-                                       plot=True, save_fig=True, filepath=f"results/{key}.png"
-                                       )
-        pickle.dump(model, open(os.path.join(model_path, f"ResUNet_{key}_model.pkl"), "wb"))
+        model_filepath = os.path.join(model_path, f"ResUNet_{key}_model.pkl")
+        if not os.path.exists(model_filepath):
 
-        for key in result.keys():
-            result[key] = str(result[key])
-        with open(f"results/{key}.json", "w") as f:
-            json.dump(result, f, indent=4)
+            print(f"\nTraining for features set '{key}': {str(features)}")
+
+            model , result = dl_regression(sample, features,
+                                           epochs=max_epochs,
+                                           batch_size=batch_size,
+                                           patch_size=patch_size,
+                                           learning_rate=learning_rate,
+                                           lambda_ssim=lambda_ssim,
+                                           plot=True, filepath_base=f"results/{key}"
+                                           )
+            pickle.dump(model, open(os.path.join(model_path, f"ResUNet_{key}_model.pkl"), "wb"))
+
+            for k in result.keys():
+                # noinspection PyTypeChecker
+                result[k] = str(result[k])
+            with open(f"results/{key}.json", "w") as f:
+                json.dump(result, f, indent=4)
+
+        else:
+            print(f"Model already exists for features set '{key}'. Skipping...")
 
     print("\n-> Super-Resolution training is done.")
 

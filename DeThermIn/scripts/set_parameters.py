@@ -2,8 +2,7 @@ from .utils import bold_text
 from ..metadata import (parameters,
                         parameters_description,
                         json_filepath_parameters,
-                        update_lidar_metadata,
-                        update_data_blending_path
+                        update_lidar_metadata
                         )
 import json
 

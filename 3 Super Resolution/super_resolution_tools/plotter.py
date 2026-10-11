@@ -1,18 +1,22 @@
 import matplotlib.pyplot as plt
-from .preprocessing import reconstruct, reconstruct_for_DL
-from .error_quantifiers import *
+import numpy as np
+import xarray as xr
+from .error_quantifiers import rmse
 import matplotlib.gridspec as gridspec
 import matplotlib.patheffects as path_effects
 
 
-def plot_test_predictions(y_pred_test, dataset, nan_mask=None, train_size=None, save=False, filepath=None):
+def plot_test_predictions(pred, dataset, filepath=None):
 
-    if (nan_mask is not None) & (train_size is not None):
-        LST_ground, LST_coarse, test, residuals = reconstruct(y_pred_test, nan_mask, train_size, dataset)
-    else:
-        LST_ground, LST_coarse, test, residuals = reconstruct_for_DL(y_pred_test, dataset)
+    dataset["pred"] = xr.DataArray(pred, dims=("y", "x"), coords={"y": dataset.y, "x": dataset.x})
+    dataset = dataset.where(dataset.pred.notnull(), drop=True)
 
-    fig = plt.figure(figsize=(14, 8), dpi=400)
+    true = dataset.LST_ground.values
+    pred = dataset.pred.values
+    residuals = true - pred
+    coarse_LST = dataset.fine_LST
+
+    fig = plt.figure(figsize=(10, 16), dpi=400)
     gs = gridspec.GridSpec(
         4, 1,
         figure=fig,
@@ -20,12 +24,12 @@ def plot_test_predictions(y_pred_test, dataset, nan_mask=None, train_size=None, 
     )
 
     axes = [fig.add_subplot(gs[0]), fig.add_subplot(gs[1]), fig.add_subplot(gs[2]), fig.add_subplot(gs[3])]
-    axes[0].imshow(LST_coarse, cmap='RdYlBu_r', vmin=np.nanmin(LST_ground), vmax=np.nanmax(LST_ground))
-    axes[1].imshow(LST_ground, cmap='RdYlBu_r', vmin=np.nanmin(LST_ground), vmax=np.nanmax(LST_ground))
-    im1=axes[2].imshow(test, cmap='RdYlBu_r', vmin=np.nanmin(LST_ground), vmax=np.nanmax(LST_ground))
+    axes[0].imshow(coarse_LST, cmap='RdYlBu_r', vmin=np.nanmin(true), vmax=np.nanmax(true))
+    axes[1].imshow(true, cmap='RdYlBu_r', vmin=np.nanmin(true), vmax=np.nanmax(true))
+    im1=axes[2].imshow(pred, cmap='RdYlBu_r', vmin=np.nanmin(true), vmax=np.nanmax(true))
     im2=axes[3].imshow(residuals, cmap='RdBu_r', vmin=-np.nanmax(abs(residuals)), vmax=np.nanmax(abs(residuals)))
 
-    add_scale(axes[3], y_pred_test, resol=2)
+    add_scale(axes[3], pred, resol=2)
 
     cbar_ax1 = fig.add_axes([0.3, 0.09, 0.4, 0.009])  # top colorbar
     cbar_ax2 = fig.add_axes([0.3, 0.01, 0.4, 0.009])  # bottom colorbar
@@ -51,11 +55,10 @@ def plot_test_predictions(y_pred_test, dataset, nan_mask=None, train_size=None, 
             path_effects.Normal()
         ])
 
-    if save and filepath:
+    if filepath is not None:
         fig.savefig(filepath, bbox_inches="tight", dpi=300)
-        return
     else:
-        return fig, axes
+        plt.show()
 
 
 def add_scale(ax, y_pred_test, resol, scale_size=100):
@@ -65,8 +68,8 @@ def add_scale(ax, y_pred_test, resol, scale_size=100):
     x = np.arange(W)
     y = np.arange(H)
 
-    center_x = 30 - W
-    lower_y = 30 - H
+    center_x = 50 - W
+    lower_y = 50 - H
 
     x_idxs = [center_x, center_x + n_pixels]
     y_idxs = [-lower_y, -lower_y]
@@ -89,27 +92,27 @@ def add_scale(ax, y_pred_test, resol, scale_size=100):
 
 
 
-def plot_train_curve(lin_model):
-    fig = plt.figure()
+def plot_train_curve(lin_model, filepath=None):
+    fig=plt.figure()
     plt.plot(lin_model.train_errors[1:], '-k', lw=2, label="Training fold")
     plt.xlabel("Iteration")
     plt.ylabel("Relative error")
     plt.legend()
-    plt.show()
-    return
-
-
-def plot_residuals(y_pred_test, dataset, nan_mask=None, train_size=None):
-
-    if (nan_mask is not None) & (train_size is not None):
-        LST_ground, LST_coarse, test, residuals = reconstruct(y_pred_test, nan_mask, train_size, dataset)
+    if filepath is not None:
+        fig.savefig(filepath, bbox_inches="tight", dpi=300)
     else:
-        LST_ground, LST_coarse, test, residuals = reconstruct_for_DL(y_pred_test, dataset)
+        plt.show()
+
+
+def plot_residuals(pred, dataset, filepath=None):
+
+    true = dataset.LST_ground.values
+    residuals = true - pred
 
     resid_std = np.nanstd(residuals)
 
     bias = np.nanmean(residuals)
-    RMSE = rmse(test.flatten(), LST_ground.flatten())
+    RMSE = rmse(pred, true)
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
     ax2 = axes[0].twiny()
@@ -131,14 +134,18 @@ def plot_residuals(y_pred_test, dataset, nan_mask=None, train_size=None):
     axes[1].set_ylabel("Ground truth LST [°C]")
 
     axes[0].legend(title=f"RMSE: {RMSE:.2f} °C\nbias: {bias:.2f} °C")
-    axes[1].scatter(test.flatten(), LST_ground.flatten(), color="k", s=1, alpha=0.01)
+    axes[1].scatter(pred.flatten(), true.flatten(), color="k", s=1, alpha=0.01)
     axes[1].set_xlim([10, 80])
     axes[1].set_ylim([10, 80])
     axes[1].plot(np.linspace(10, 80, 3), np.linspace(10, 80, 3), c="k", ls="--")
-    plt.show()
+
+    if filepath is not None:
+        fig.savefig(filepath, bbox_inches="tight", dpi=300)
+    else:
+        plt.show()
 
 
-def plot_loss_DL(train_losses, val_losses, train_batches_per_epoch, val_batches_per_epoch):
+def plot_loss_DL(train_losses, val_losses, train_batches_per_epoch, val_batches_per_epoch, filepath=None):
 
         train_epoch_loss = [
             np.mean(train_losses[i * train_batches_per_epoch:(i + 1) * train_batches_per_epoch])
@@ -153,15 +160,18 @@ def plot_loss_DL(train_losses, val_losses, train_batches_per_epoch, val_batches_
         train_epochs = range(1, len(train_epoch_loss) + 1)
         val_epochs = range(1, len(val_epoch_loss) + 1)
 
-        plt.figure(figsize=(10, 6))
+        fig = plt.figure(figsize=(10, 6))
         plt.plot(train_epochs, train_epoch_loss, label="Train Loss", linewidth=2)
         plt.plot(val_epochs, val_epoch_loss, label="Validation Loss", linewidth=2)
 
         plt.xlabel("Epochs")
         plt.ylabel("Loss")
         plt.legend()
-        plt.tight_layout()
-        plt.show()
+
+        if filepath is not None:
+            fig.savefig(filepath, bbox_inches="tight", dpi=300)
+        else:
+            plt.show()
 
 
 def plot_random_forest_feature_importance(model, features):

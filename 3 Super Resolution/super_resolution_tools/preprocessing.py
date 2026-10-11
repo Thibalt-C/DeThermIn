@@ -4,46 +4,45 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import cross_val_score, GridSearchCV, KFold
 
-def format_for_learning(dataset, features, no_y=False):
+binary_features = ["mineralized", "vegetalized", "artificial", "buildings_mask", "water_mask", "cloud_mask", "shadow"]
 
-    binary_features = ["mineralized", "vegetalized", "artificial", "buildings_mask", "water_mask", "cloud_mask", "shadow"]
+
+def format_for_learning(dataset, features, no_y=False):
 
     X_continuous = []
     X_binary = []
 
     for feature in features:
-        x = dataset[feature].values.reshape(-1, 1)
+        x = dataset[feature].values
         if np.isin(feature, binary_features):
             x = x.astype(int) # binary 0 and 1
-            #x[np.isnan(x)] = 0  # Handle NaN for binary features
             X_binary.append(x)
         else:
             X_continuous.append(x)
 
-    X_continuous = np.concatenate(X_continuous, axis=1)
+    X_continuous = np.stack(X_continuous, axis=-1)
 
     # Concatenate back
     if len(X_binary)!=0:
-        X_binary = np.concatenate(X_binary, axis=1)
-        X = np.concatenate([X_binary, X_continuous], axis=1)
+        X_binary = np.stack(X_binary, axis=-1)
+        X = np.concatenate([X_binary, X_continuous], axis=2)
     else:
         X = X_continuous
 
     if not no_y:
-        y = dataset.LST_ground.values.reshape(-1, 1)
-        nan_mask = (np.isnan(X).any(axis=1)) | (np.isnan(y).squeeze())
-        y = y[~nan_mask]
-        X = X[~nan_mask]
-        return X, y, nan_mask
-
+        y = dataset.LST_ground.values
+        nan_mask = (np.isnan(X).any(axis=2)) | np.isnan(y)
+        y[nan_mask] = np.nan
+        y = y[:, :, np.newaxis]
+        X[nan_mask, :] = np.nan
+        return X, y
     else:
-        nan_mask = np.isnan(X).any(axis=1)
-        X = X[~nan_mask]
-        return X, nan_mask
+        nan_mask = (np.isnan(X).any(axis=2))
+        X[nan_mask, :] = np.nan
+        return X
+
 
 def format_for_deep_learning(dataset, features, scaler=None, no_y=False):
-
-    binary_features = ["mineralized", "vegetalized", "artificial", "buildings_mask", "water_mask", "cloud_mask", "shadow"]
 
     X_continuous = []
     X_binary = []
@@ -109,65 +108,26 @@ def get_scaler(X):
     return preprocessor
 
 
-def reconstruct(y_pred_test, nan_mask, train_size, dataset, coarse_LST_layer = "fine_LST"):
+def train_test_split(X, y, dataset, valid=True):
 
-    finite_indices = np.where(~nan_mask)[0]
-    test_indices = finite_indices[int(len(finite_indices) * train_size):]
-    test = np.full(len(nan_mask), np.nan)
-    test[test_indices] = y_pred_test
-    test = test.reshape(len(dataset.y), len(dataset.x))
+    test_mask = ~dataset.test_mask.values
+    X_test = X.copy(); y_test = y.copy()
+    X_test[test_mask, :] = np.nan
+    y_test[test_mask] = np.nan
 
-    LST_coarse = dataset[coarse_LST_layer].values.flatten()
-    LST_coarse[~test_indices] = np.nan
-    LST_coarse = LST_coarse.reshape(len(dataset.y), len(dataset.x))
-
-    LST_ground = dataset.LST_ground.values.flatten()
-    LST_ground[~test_indices] = np.nan
-    LST_ground = LST_ground.reshape(len(dataset.y), len(dataset.x))
-
-    LST_ground = LST_ground[~np.isnan(test).all(axis=1), :]
-    LST_coarse = LST_coarse[~np.isnan(test).all(axis=1), :]
-    test = test[~np.isnan(test).all(axis=1), :]
-
-    residuals = test - LST_ground
-
-    return LST_ground, LST_coarse, test, residuals
-
-def reconstruct_for_DL(y_pred_test, dataset, coarse_LST_layer="fine_LST"):
-
-    H, W = dataset.rio.shape
-    h, w = y_pred_test.shape
-
-    test = y_pred_test
-    LST_coarse = dataset[coarse_LST_layer].values[H-h:,:]
-    LST_ground = dataset.LST_ground.values[H-h:,:]
-    residuals = test - LST_ground
-
-    return LST_ground, LST_coarse, test, residuals
-
-
-def reconstruct_full(dataset, features, model, layer_name):
-    cube = []
-
-    for time in dataset.time.values:
-        sample = dataset.sel(time=time)
-
-        X, nan_mask = format_for_learning(sample, features, no_y=True)
-
-        reconstructed = np.full(len(nan_mask), np.nan)
-        reconstructed[~nan_mask] = model.predict(X)
-        reconstructed = reconstructed.reshape(len(sample.y), len(sample.x))
-
-        cube.append(reconstructed)
-
-    cube = np.stack(cube, axis=-1)
-
-    dataset[layer_name] = xr.DataArray(cube, dims=("y", "x", "time"),
-                                            coords={"time": dataset.time, "y": dataset.y, "x": dataset.x},
-                                            attrs={"units": "°C", "standard_name": "Land Surface Temperature",
-                                                   "plot_kwargs": {"cmap": "RdYlBu_r"}})
-
-    return dataset
+    if valid:
+        train_mask = ~dataset.train_mask.values
+        valid_mask = ~dataset.valid_mask.values
+        X_train = X.copy(); X_train[train_mask, :] = np.nan
+        y_train = y.copy(); y_train[train_mask] = np.nan
+        X_valid = X.copy(); X_valid[valid_mask, :] = np.nan
+        y_valid = y.copy(); y_valid[valid_mask] = np.nan
+        return X_train, X_test, X_valid, y_train, y_test, y_valid
+    else:
+        train_mask = (~dataset.train_mask.values) & (~dataset.valid_mask.values)
+        X_train = X.copy(); X_train[train_mask, :] = np.nan
+        y_train = y.copy(); y_train[train_mask] = np.nan
+        return X_train, X_test, y_train, y_test
 
 
 def do_grid_search(model, param_grid, X_train, y_train, cv_folds=5):
@@ -188,7 +148,10 @@ def do_grid_search(model, param_grid, X_train, y_train, cv_folds=5):
 
 
 def cross_val(model, X_train, y_train, cv_folds=5):
+    nan_mask = np.isnan(X_train).any(axis=2)
+    X_train = X_train[~nan_mask, :].reshape(-1, X_train.shape[2])
+    y_train = y_train[~nan_mask].reshape(-1, 1).squeeze()
     cv = KFold(n_splits=cv_folds, shuffle=False)
-    cv_scores = cross_val_score(model, X_train, y_train.squeeze(), cv=cv, scoring='neg_root_mean_squared_error')
+    cv_scores = cross_val_score(model, X_train, y_train, cv=cv, scoring="neg_root_mean_squared_error")
     print(f"Cross-validated RMSE scores: {-cv_scores}")
     print(f"Mean CV RMSE: {-cv_scores.mean():.2f} °C")

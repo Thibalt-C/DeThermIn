@@ -1,8 +1,10 @@
 import numpy as np
 from pytorch_msssim import ms_ssim
+#from skimage.metrics import structural_similarity as ssim
 
-def rmse(x,y):
-    return np.sqrt(np.nansum((x-y)**2)/len(x))
+def rmse(x, y):
+    valid = np.isfinite(x) & np.isfinite(y)
+    return np.sqrt(np.mean((x[valid] - y[valid]) ** 2))
 
 def res_bias(x,y):
     return np.nanmean(y-x)
@@ -11,7 +13,9 @@ def mae(x,y):
     return np.nanmean(np.abs(x-y))
 
 def psnr(x,y):
-    return 20*np.log10(np.nanmax(x)/rmse(x,y))
+    x_max = np.nanmax(x)
+    RMSE = rmse(x,y)
+    return 20*(np.log10(x_max)-np.log10(RMSE))
 
 def ssim(x, y, k1=0.01, k2=0.03, bits=32):
 
@@ -38,18 +42,17 @@ def ssim(x, y, k1=0.01, k2=0.03, bits=32):
 
     return num / den
 
-
 def multi_scale_ssim(pred, target):
-    return 1 - ms_ssim(pred, target, data_range=1, size_average=True, win_size=7)
+    return ms_ssim(pred, target, data_range=1, size_average=True, win_size=7)
 
 
 def evaluate(y_pred_test, y_test, verbose=True):
 
-    MAE = mae(y_test.squeeze(), y_pred_test)
-    PSNR = psnr(y_test.squeeze(), y_pred_test)
-    SSIM = ssim(y_test.squeeze(), y_pred_test)
-    RMSE = rmse(y_test.squeeze(), y_pred_test)
-    bias = res_bias(y_test.squeeze(), y_pred_test)
+    MAE = mae(y_test, y_pred_test)
+    PSNR = psnr(y_test, y_pred_test)
+    SSIM = ssim(y_test, y_pred_test)
+    RMSE = rmse(y_test, y_pred_test)
+    bias = res_bias(y_test, y_pred_test)
 
     if verbose:
         print(f"Final test RMSE: {RMSE:.2f} °C")

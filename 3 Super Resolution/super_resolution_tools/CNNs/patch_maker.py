@@ -1,10 +1,7 @@
 import torch
 import numpy as np
 
-def extract_patches(X, y, patch_size=64, stride=32):
-    H, W, C = X.shape
-    patches_X, patches_y, valid_patches = [], [], []
-
+def get_positions(patch_size, stride, H, W):
     positions_i = list(range(0, H - patch_size + 1, stride))
     if positions_i[-1] != H - patch_size:
         positions_i.append(H - patch_size)
@@ -12,6 +9,13 @@ def extract_patches(X, y, patch_size=64, stride=32):
     positions_j = list(range(0, W - patch_size + 1, stride))
     if positions_j[-1] != W - patch_size:
         positions_j.append(W - patch_size)
+    return positions_i, positions_j
+
+def extract_patches(X, y, patch_size=64, stride=32):
+    H, W, C = X.shape
+    patches_X, patches_y, valid_patches = [], [], []
+
+    positions_i, positions_j = get_positions(patch_size, stride, H, W)
 
     for i in positions_i:
         for j in positions_j:
@@ -31,6 +35,15 @@ def extract_patches(X, y, patch_size=64, stride=32):
     return patches_X, patches_y, valid_patches
 
 
+def pyramid_weight(patch_size):
+    # 1D ramp up then down
+    ramp = np.linspace(0, 1, patch_size // 2)
+    ramp = np.concatenate([ramp, ramp[::-1]])
+
+    # 2D mask
+    w = np.outer(ramp, ramp)
+    return w.astype(np.float32)
+
 def reconstruct_from_patches(patches, original_shape, valid_patches,
                              patch_size=64, stride=32):
 
@@ -38,23 +51,7 @@ def reconstruct_from_patches(patches, original_shape, valid_patches,
     recon = np.zeros((H, W), dtype=np.float32)
     weight = np.zeros((H, W), dtype=np.float32)
 
-    positions_i = list(range(0, H - patch_size + 1, stride))
-    if positions_i[-1] != H - patch_size:
-        positions_i.append(H - patch_size)
-
-    positions_j = list(range(0, W - patch_size + 1, stride))
-    if positions_j[-1] != W - patch_size:
-        positions_j.append(W - patch_size)
-
-    def pyramid_weight(patch_size):
-        # 1D ramp up then down
-        ramp = np.linspace(0, 1, patch_size // 2)
-        ramp = np.concatenate([ramp, ramp[::-1]])
-
-        # 2D mask
-        weight = np.outer(ramp, ramp)
-        return weight.astype(np.float32)
-
+    positions_i, positions_j = get_positions(patch_size, stride, H, W)
 
     pw = pyramid_weight(patch_size)
 
@@ -82,16 +79,16 @@ def reconstruct_from_patches(patches, original_shape, valid_patches,
 
 
 def reconstruct_DL(model, loader, patch_size, stride, H, W, valid_patches):
-    preds = []
+    predictions = []
 
     with torch.no_grad():
         for X_batch, _ in loader:
             out = model(X_batch)
-            preds.append(out)
+            predictions.append(out)
 
-    preds = torch.cat(preds, dim=0)
+    predictions = torch.cat(predictions, dim=0)
 
-    reconstructed = reconstruct_from_patches(preds, (H, W), valid_patches = valid_patches,
+    reconstructed = reconstruct_from_patches(predictions, (H, W), valid_patches = valid_patches,
                                              patch_size=patch_size, stride=stride)
 
     return reconstructed

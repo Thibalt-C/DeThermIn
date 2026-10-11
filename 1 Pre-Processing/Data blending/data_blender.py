@@ -2,7 +2,7 @@ import subprocess
 import os
 import pickle
 import xarray as xr
-import rioxarray
+# noinspection PyUnusedImports
 from rasterio.enums import Resampling
 
 

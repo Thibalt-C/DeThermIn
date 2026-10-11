@@ -61,7 +61,7 @@ def download_geostationary_data(
 
 def train(training_datacube_path):
 
-    process = subprocess.Popen(["python", metadata["training_script"],
+    process = subprocess.Popen(["python", "-u", metadata["training_script"],
                                 training_datacube_path,
                                 metadata["training_features_file"],
                                 parameters["super_resolution_train_size"],
@@ -73,13 +73,8 @@ def train(training_datacube_path):
                                 parameters["super_resolution_lambda_ssim"]
                                 ],
                                cwd=os.path.join(os.path.curdir, metadata["training_path"]),
-                               stdout=subprocess.PIPE,
-                               universal_newlines=True,
-                               bufsize=1,
+                               stdout=None,
                                env=os.environ.copy())
-
-    for line in iter(process.stdout.readline, ''):
-        print(line, end='')
 
     process.wait()
 

@@ -1,7 +1,7 @@
 import pytorch_lightning as pl
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
+import torch.nn.functional as f
 from ..error_quantifiers import multi_scale_ssim
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -9,7 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 
 # Convolutional block and residual block
 
-class double_conv(nn.Module):
+class DoubleConv(nn.Module):
     def __init__(self, in_ch, out_ch):
         super().__init__()
         self.conv = nn.Sequential(
@@ -25,7 +25,7 @@ class double_conv(nn.Module):
         return self.conv(x)
 
 
-class double_residual(nn.Module):
+class DoubleResidual(nn.Module):
     def __init__(self, in_ch, out_ch):
         super().__init__()
 
@@ -53,11 +53,11 @@ class double_residual(nn.Module):
 
 # Encoder
 
-class down_layer(nn.Module):
+class DownLayer(nn.Module):
     def __init__(self, in_ch, out_ch):
         super().__init__()
         self.pool = nn.MaxPool2d(2)
-        self.conv = double_residual(in_ch, out_ch)
+        self.conv = DoubleResidual(in_ch, out_ch)
 
     def forward(self, x):
         return self.conv(self.pool(x))
@@ -65,7 +65,7 @@ class down_layer(nn.Module):
 
 # Decoder
 
-class up(nn.Module):
+class Up(nn.Module):
     def __init__(self, in_ch, out_ch):
         super().__init__()
         self.up_scale = nn.ConvTranspose2d(in_ch, out_ch, 2, stride=2)
@@ -74,74 +74,54 @@ class up(nn.Module):
         x2 = self.up_scale(x2)
         diffY = x1.size()[2] - x2.size()[2]
         diffX = x1.size()[3] - x2.size()[3]
-        x2 = F.pad(x2, [diffX // 2, diffX - diffX // 2,
+        x2 = f.pad(x2, [diffX // 2, diffX - diffX // 2,
                         diffY // 2, diffY - diffY // 2])
         return torch.cat([x2, x1], dim=1)
 
 
-class up_layer(nn.Module):
+class UpLayer(nn.Module):
     def __init__(self, in_ch, out_ch):
         super().__init__()
-        self.up = up(in_ch, out_ch)
-        self.conv = double_residual(in_ch, out_ch)
+        self.up = Up(in_ch, out_ch)
+        self.conv = DoubleResidual(in_ch, out_ch)
 
     def forward(self, x1, x2):
         return self.conv(self.up(x1, x2))
-
-
-class CBAM(nn.Module):
-    def __init__(self, ch, r=16):
-        super().__init__()
-
-        # Channel attention
-        self.channel = nn.Sequential(
-            nn.AdaptiveAvgPool2d(1),
-            nn.Conv2d(ch, ch // r, 1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(ch // r, ch, 1),
-            nn.Sigmoid()
-        )
-
-        # Spatial attention
-        self.spatial = nn.Sequential(
-            nn.Conv2d(2, 1, kernel_size=7, padding=3),
-            nn.Sigmoid()
-        )
-
-    def forward(self, x):
-        xc = x * self.channel(x)
-        xs = torch.cat([xc.mean(1, keepdim=True), xc.max(1, keepdim=True)[0]], dim=1)
-        return xc * self.spatial(xs)
 
 
 # Model
 
 class ResUNet(pl.LightningModule):
     def __init__(self, in_channels=1, out_channels=1, lr=1e-3, lambda_ssim=0.2):
+
+        # stored here for linting, otherwise available via self.hparams
+        self.lr = lr
+        self.lambda_ssim = lambda_ssim
+
         super().__init__()
         self.save_hyperparameters()
 
         # Encoder
-        self.first_conv = double_conv(in_channels, 32)
+        self.first_conv = DoubleConv(in_channels, 32)
 
-        self.down1 = down_layer(32, 64)
-        self.down2 = down_layer(64, 128)
-        self.down3 = down_layer(128, 256)
-        self.down4 = down_layer(256, 512)
+        self.down1 = DownLayer(32, 64)
+        self.down2 = DownLayer(64, 128)
+        self.down3 = DownLayer(128, 256)
+        self.down4 = DownLayer(256, 512)
 
         self.bottleneck = nn.Sequential(
-            double_residual(512, 512),
+            DoubleResidual(512, 512),
             nn.Dropout2d(p=0.1)
         )
 
         # Decoder
-        self.up1 = up_layer(512, 256)
-        self.up2 = up_layer(256, 128)
-        self.up3 = up_layer(128, 64)
-        self.up4 = up_layer(64, 32)
+        self.up1 = UpLayer(512, 256)
+        self.up2 = UpLayer(256, 128)
+        self.up3 = UpLayer(128, 64)
+        self.up4 = UpLayer(64, 32)
 
         self.last_conv = nn.Sequential(
-            double_conv(32, 32),
+            DoubleConv(32, 32),
             nn.Conv2d(32, out_channels, 1, bias=False)
         )
 
@@ -180,7 +160,7 @@ class ResUNet(pl.LightningModule):
         self.train_losses.append(loss.item())
 
         self.log("train_loss", loss)
-        self.log("train_mse", mse)
+        self.log("train_mse", mse, prog_bar=True, on_step=False, on_epoch=True)
         self.log("train_ssim_loss", ssim_loss)
 
         return loss
@@ -192,7 +172,7 @@ class ResUNet(pl.LightningModule):
         self.val_losses.append(loss.item())
 
         self.log("val_loss", loss)
-        self.log("val_mse", mse)
+        self.log("val_mse", mse, prog_bar=True, on_step=False, on_epoch=True)
         self.log("val_ssim_loss", ssim_loss)
 
     def configure_optimizers(self):
@@ -216,6 +196,7 @@ class CustomDataset(Dataset):
 class DataModule(pl.LightningDataModule):
     def __init__(self, X_train, X_val, X_test, y_train, y_val, y_test, batch_size=10, num_workers=7):
         super().__init__()
+
         self.batch_size = batch_size
         self.num_workers = num_workers
 
@@ -226,6 +207,10 @@ class DataModule(pl.LightningDataModule):
         self.y_train = torch.tensor(y_train)
         self.y_val   = torch.tensor(y_val)
         self.y_test  = torch.tensor(y_test)
+
+        self.train_ds = None
+        self.val_ds = None
+        self.test_ds = None
 
     def setup(self, stage=None):
         self.train_ds = CustomDataset(self.X_train, self.y_train)

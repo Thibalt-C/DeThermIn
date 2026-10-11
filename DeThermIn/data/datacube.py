@@ -1,8 +1,14 @@
+"""
+datacube module:
+Contains the DataCube class, which is handling xarray objects with extra features.
+The downloaded and processed data of the DeThermIn workflow can be imported as DataCube objects.
+"""
+
 from .enricher import enrich_dataset
 from .utils import *
 from .visualisation import *
 from .interactive import *
-from ..metadata import extensions
+from ..metadata import extensions, parameters
 from copy import deepcopy
 from shapely.geometry import shape
 from rasterio.features import shapes
@@ -11,7 +17,7 @@ import os
 import datetime
 import pickle
 import xarray as xr
-import rioxarray
+# noinspection PyUnusedImports
 from rasterio.enums import Resampling
 from matplotlib.collections import QuadMesh
 from cartopy.mpl.geoaxes import GeoAxes, GeoAxesSubplot
@@ -464,6 +470,35 @@ class DataCube:
         dc = inplace_rule(self, inplace)
 
         dc.data["LST_ground"] = ground_truth_datacube.data["LST_ground"].rio.reproject_match(dc.data)
+
+        train_prop = float(parameters["super_resolution_train_size"]) * (1 - float(parameters["super_resolution_valid_size"]))
+        valid_prop = float(parameters["super_resolution_train_size"]) * float(parameters["super_resolution_valid_size"])
+
+        counts = dc.data.mask.sum("x")
+        cum_counts = counts.cumsum("y")
+        total = int(cum_counts[-1])
+
+        train_threshold = total * train_prop
+        valid_threshold = total * (train_prop + valid_prop)
+
+        y_train_end = int(cum_counts.searchsorted(train_threshold))
+        y_valid_end = int(cum_counts.searchsorted(valid_threshold))
+
+        train_mask = xr.zeros_like(dc.data.mask, dtype=bool)
+        valid_mask = xr.zeros_like(dc.data.mask, dtype=bool)
+        test_mask = xr.zeros_like(dc.data.mask, dtype=bool)
+
+        train_mask.loc[{"y": dc.data.y[:y_train_end]}] = True
+        valid_mask.loc[{"y": dc.data.y[y_train_end:y_valid_end]}] = True
+        test_mask.loc[{"y": dc.data.y[y_valid_end:]}] = True
+
+        train_mask &= dc.data.mask
+        valid_mask &= dc.data.mask
+        test_mask &= dc.data.mask
+
+        dc.data["train_mask"] = train_mask
+        dc.data["valid_mask"] = valid_mask
+        dc.data["test_mask"] = test_mask
 
         dc.update_status(extensions["training_data"])
 

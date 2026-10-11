@@ -32,7 +32,7 @@ available_areas = gpd.read_file(
 resolution = parameters["resolution"]
 start = datetime.datetime.strptime(parameters["start_date"], "%Y-%m-%d")
 end = datetime.datetime.strptime(parameters["end_date"], "%Y-%m-%d")
-bbox_size = parameters["larger_bbox_size_km"]
+bbox_size = int(parameters["larger_bbox_size_km"])
 
 # features used for training
 training_features_path = metadata["training_path"] + metadata["training_features_file"]
@@ -50,7 +50,7 @@ extensions = metadata["extensions"]
 # function to update the paths of downloaded LiDAR data
 def update_lidar_metadata(path):
 
-    with open(lidar_path, "rb") as f:
+    with open(lidar_path, "r") as f:
         lidar_metadata = json.load(f)
 
     for key in lidar_metadata.keys():
@@ -59,19 +59,5 @@ def update_lidar_metadata(path):
     with open(lidar_path, "w") as f:
         json.dump(lidar_metadata, f, indent=4)
 
-# function to update the paths of the processed data
-def update_data_blending_path(path):
-
-    with open(data_blending_path, "rb") as f:
-        db_metadata = json.load(f)
-
-    for key in db_metadata.keys():
-        if key == "pickle_files_folder":
-            db_metadata[key] = path
-
-    with open(data_blending_path, "w") as f:
-        json.dump(db_metadata, f, indent=4)
-
 # repercussion of the global parameters
 update_lidar_metadata(parameters["downloaded_data_path"])
-update_data_blending_path(parameters["processed_data_path"])

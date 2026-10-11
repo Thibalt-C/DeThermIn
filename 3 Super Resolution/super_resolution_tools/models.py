@@ -6,18 +6,29 @@ from .CNNs import extract_patches, CustomDataset, reconstruct_DL
 from torch.utils.data import DataLoader
 import numpy as np
 import torch
+# noinspection PyUnusedImports
 import rioxarray
 
 
 class CustomLinearRegression(BaseEstimator, RegressorMixin):
+    """
+    Linear model with gradient descent.
+    """
     def __init__(self, learning_rate=0.1, max_iterations=1000, step_threshold=1e-6):
         self.learning_rate = learning_rate
         self.max_iterations = max_iterations
         self.step_threshold = step_threshold
         self.weights = None
+        self.scaler = None
         self.train_errors = []
 
-    def fit(self, X, y):
+    def fit(self, X, y, is_2D=False):
+
+        if is_2D:
+            H, W, n_features = X.shape
+            nan_mask = (np.isnan(X).any(axis=2)) | np.isnan(y.squeeze())
+            X = X[~nan_mask, :].reshape(-1, n_features)
+            y = y[~nan_mask].reshape(-1, 1).squeeze()
 
         # scale
         self.scaler = get_scaler(X)
@@ -37,21 +48,36 @@ class CustomLinearRegression(BaseEstimator, RegressorMixin):
                 break
         return self
 
-    def predict(self, X):
+    def predict(self, X, return_2D=False):
+
+        if return_2D:
+            H, W, n_features = X.shape
+            nan_mask = (np.isnan(X).any(axis=2))
+            X = X[~nan_mask, :].reshape(-1, n_features)
+
+
         X = self.scaler.transform(X)
         if X.shape[1] == len(self.weights) - 1:
             X = np.concatenate([X, np.ones((X.shape[0], 1))], axis=1)
-        return np.dot(X, self.weights)
 
-    def score(self, X, y):
-        y_pred = self.predict(X)
-        return -rmse(y.squeeze(), y_pred)  # Negative RMSE for minimization
+        y_pred = np.dot(X, self.weights)
+
+        if return_2D:
+            y_reshaped = np.full((H, W), np.nan)
+            y_reshaped[~nan_mask] = y_pred
+            return y_reshaped
+        else:
+            return y_pred.squeeze()
 
 
 
 class CustomRandomForestRegressor(BaseEstimator, RegressorMixin):
+    """
+    Random forest regressor.
+    """
 
     def __init__(self, n_estimators=10, max_depth=10, max_features=None):
+        self.scaler = None
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.max_features = max_features
@@ -70,14 +96,16 @@ class CustomRandomForestRegressor(BaseEstimator, RegressorMixin):
         y_pred = self.regressor.predict(X)
         return y_pred
 
-    def score(self, X, y):
+    def score(self, X, y, **kwargs):
         y_pred = self.predict(X)
-        return -rmse(y.squeeze(), y_pred)  # Negative RMSE for minimization
+        return -rmse(y.squeeze(), y_pred)  # Negative for minimization
 
 
 
-class trained_UNet():
-
+class TrainedResUNet:
+    """
+    U-Net based deep neural network with residual blocks.
+    """
     def __init__(self, model, features, batch_size, epochs, patch_size, scaler):
         self.features = features
         self.batch_size = batch_size
