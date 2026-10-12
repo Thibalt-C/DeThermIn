@@ -118,7 +118,7 @@ python -m DeThermIn selection
 
 This will help you to select an area of interest and a date of observation for the processed data. The different steps are described bellow.
 
-#### Select an area
+#### 1. Select an area
 
 The DeThermIn workflow has been implemented for both France and the Netherlands (mainland). The following French ultramarine territories are also included: Réunion, Mayotte, Guadeloupe, Martinique.
 
@@ -130,7 +130,7 @@ If the workflow has already been fully (or partially) processed for a given area
 
 ![](_figures/workflow_element_2.png)
 
-#### Launch the pre-processing
+#### 2. Launch the pre-processing
 
 After the selection of an area of interest, the parameters are recalled and you are asked to confirm before continuing to the pre-processing.
 
@@ -152,7 +152,7 @@ Multispectral and airborne LiDAR data are then merged together at the spatial re
 ![](_figures/workflow_element_3.png)
 
 
-#### Fitting of a Diurnal Temperature Cycle Model
+#### 3. Fitting of a Diurnal Temperature Cycle Model
 
 A **Diurnal Temperature Cycle (DTC) model** decomposes the LST into daytime and nighttime behaviours. It comes with two time parameters (time of the maximal LST and time separating day/night behaviours) and three LST parameters (LST at sunrise, maximal LST and LST at the sunrise of the next day) to estimate. 
 
@@ -163,7 +163,7 @@ We defined a **clear-sky pixel** as a pixel with at least two recorded LSTs for 
 ![Diurnal Temperature Cycle model from [Göttsche & Olesen (2001)](#references).](_figures/DTC_model.png)
 
 
-#### Choose a specific day for spatio-temporal unmixing
+#### 4. Choose a specific day for spatio-temporal unmixing
 
 When the DTC model has been fitted to the data, clear-sky days are listed and the user is asked to choose one of them to continue with the next step.
 
@@ -173,7 +173,7 @@ The resulting time series has the spatial resolution of the narrow-swath mission
 
 ![Downscaled LST after spatio-temporal unmixing (1h / 70m)](_figures/workflow_element_4.png)
 
-#### Process super-resolution
+#### 5. Process super-resolution
 
 Finally, the user will be asked to choose among the existing trained deep-neural-network models (that vary by using different features).
 
@@ -183,7 +183,7 @@ When processed, a time series with LST at the resolution of the ancillary data i
 
 ![DeThermIn product obtained after the super-resolution (here 1h / 2m)](_figures/DeThermIn_example.gif)
 
-#### Visualisation
+#### 6. Visualisation
 
 A processed area can be visualised with interactive maps, static or animated plots. [Here](https://thibalt-c.github.io/DeThermIn/_figures/4_4684_51_9249_06_01_2026_08_31_2026_DeThermIn_20260626110000.html) can be seen an exemple of an interactive map to be generated with an end-product.
 

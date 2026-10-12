@@ -7,6 +7,7 @@ Two separated processes can be executed:
 
 import subprocess
 import os
+import sys
 import pickle
 from datetime import datetime
 from geopandas import GeoDataFrame
@@ -20,6 +21,12 @@ def launch_data_blending(
         resolution : float,
         bbox_size : float
 ) -> DataCube :
+
+    if not sys.stdin.isatty():
+        username = input("Please enter your username (https://appeears.earthdatacloud.nasa.gov/api/login): ")
+        password = input("Please enter your password (https://appeears.earthdatacloud.nasa.gov/api/login): ")
+    else:
+        username = ""; password = ""
 
     gdf_pickle = ".gdf.pkl"
     depth  = len(os.path.split(metadata["data_blending_path"]))
@@ -40,7 +47,9 @@ def launch_data_blending(
                                 extensions["multispectral"],
                                 extensions["narrow-swath"],
                                 parameters["downloaded_data_path"],
-                                parameters["processed_data_path"]
+                                parameters["processed_data_path"],
+                                username,
+                                password
                                 ],
                                cwd=os.path.join(os.path.curdir, metadata["data_blending_path"]),
                                stdout=subprocess.PIPE,

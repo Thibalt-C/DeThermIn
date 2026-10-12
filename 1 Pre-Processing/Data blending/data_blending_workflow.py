@@ -16,6 +16,8 @@ multispectral_ext = sys.argv[9]
 narrow_swath_ext = sys.argv[10]
 downloaded_files_path = sys.argv[11]
 processed_files_folder = sys.argv[12]
+username = sys.argv[13]
+password = sys.argv[14]
 
 extensions = {"ancillary": ancillary_ext,
               "narrow-swath": narrow_swath_ext,
@@ -41,15 +43,12 @@ dataset_paths, merged_dataset_path = get_paths(name, processed_files_folder, ext
 
 temporary_gdf_pickle = f"{processed_files_folder}.gdf.pkl"
 
-if not os.path.exists(dataset_paths[1]): # ECOSTRESS data
+if (not os.path.exists(dataset_paths[1])) & (username=="") & (password==""): # ECOSTRESS data
     print("Please enter your credentials to download ECOSTRESS data (visit https://appeears.earthdatacloud.nasa.gov/api/login for more info)")
     print("USERNAME:")
     username = input("")
     print("PASSWORD:")
     password = input("")
-else:
-    username = ""
-    password = ""
 
 args = [
     [temporary_gdf_pickle, name, str(resolution), processed_files_folder, extensions["lidar"], country], # LIDAR

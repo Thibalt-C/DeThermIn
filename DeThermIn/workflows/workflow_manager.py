@@ -10,16 +10,16 @@ from . import SuperResolution as SR
 from . import Trainer as T
 
 from ..data import read_datacube, DataCube
-from ..metadata import bbox_size, extensions
+from ..metadata import parameters, extensions, start, end, resolution, bbox_size, available_areas
 
 
 def pre_process(
         gdf : GeoDataFrame,
-        start : datetime.datetime,
-        end : datetime.datetime,
-        resolution : float,
-        bbox_size : float,
-        geostationary_path : str
+        start : Optional[datetime.datetime] = start,
+        end : Optional[datetime.datetime] = end,
+        resolution : Optional[float] = resolution,
+        bbox_size : Optional[float] = bbox_size,
+        geostationary_path : Optional[str] = None
 ) -> Tuple[DataCube, DataCube, DataCube] :
     """
     Launches the pre-processing workflows.
@@ -28,15 +28,15 @@ def pre_process(
     ----------
     gdf : `geopandas.GeoDataFrame`
         Geo-file of the area of interest
-    start : `datetime.datetime`
+    start : `datetime.datetime`, optional
         Lower time bound of the time interval considered
-    end : `datetime.datetime`
+    end : `datetime.datetime`, optional
         Higher time bound of the time interval considered
-    resolution : float
+    resolution : float, optional
         Spatial resolution of the ancillary data and end product, in meters
-    bbox_size : float
+    bbox_size : float, optional
         Size of the larger bounding box around the location of interest for LST downloads, in meters
-    geostationary_path : string
+    geostationary_path : string, optional
         Path to the geostationary data
 
     Returns:
@@ -48,6 +48,16 @@ def pre_process(
     geostationary_dc : `DeThermIn.DataCube`
         Contains the LST and related data of the geostationary mission (coarser spatial resolution)
     """
+
+    if geostationary_path is None:
+        AOI = available_areas.where(available_areas.geometry.intersects(gdf.union_all())).dropna().reset_index(drop=True)
+        region = AOI.loc[0,"code"]
+        for file in os.listdir(parameters["geostationary_data_path"]):
+            if file.__contains__(f"{region}"):
+                geostationary_path = os.path.join(parameters["geostationary_data_path"], file)
+    if geostationary_path is None:
+        raise Exception("The geostationary data has not been downloaded. Please use the `predownload` command first.")
+
     geos_dc = read_datacube(geostationary_path)
     ancillary_dc = PP.launch_data_blending(gdf, start, end, resolution, bbox_size)
     datacubes = ancillary_dc.find_attached_datacubes(mode="dict")

@@ -23,12 +23,19 @@ def download_lidar(lidar_urls,
     for n, filename in iterator:
 
         if not os.path.exists(lidar_path+filename):
-            with requests.get(lidar_urls[n],stream=True) as response:
-                response.raise_for_status()
-                with open(lidar_path+filename, "wb") as f:
-                    for chunk in response.iter_content(chunk_size=1024 * 1024):
-                        if chunk:
-                            f.write(chunk)
+            try:
+                with requests.get(lidar_urls[n],stream=True) as response:
+                    response.raise_for_status()
+                    with open(lidar_path+filename, "wb") as f:
+                        for chunk in response.iter_content(chunk_size=1024 * 1024):
+                            if chunk:
+                                f.write(chunk)
+            except:
+                if os.path.exists(lidar_path+filename):
+                    os.remove(lidar_path+filename)
+                with requests.get(lidar_urls[n]) as response:
+                    with open(lidar_path+filename, "wb") as f:
+                        f.write(response.content)
 
         decimated_chunks = read_decimated_laz(lidar_path+filename, decimation_factor=decimation_factor)
         clouds.extend(decimated_chunks)

@@ -7,4 +7,5 @@ Creation date: 2026-05-01
 
 from .data import DataCube, read_datacube
 from .workflows import *
-from .scripts import selection, set_parameters, train_ResUNet, predownload
+from .scripts import selection, set_params, train_ResUNet, predownload, download_available_areas
+from .metadata import parameters

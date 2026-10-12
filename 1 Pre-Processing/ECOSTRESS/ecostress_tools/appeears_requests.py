@@ -119,22 +119,31 @@ def look_for_status(task_response, token):
     task_id = task_response["task_id"]
 
     response = requests.get(
-    'https://appeears.earthdatacloud.nasa.gov/api/status/{0}'.format(task_id),
-    headers={'Authorization': 'Bearer {0}'.format(token)})
+        f"https://appeears.earthdatacloud.nasa.gov/api/status/{task_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=60
+    )
+
+    response.raise_for_status()
+
     status_response = response.json()
 
-    try:
-        if status_response["crashed"]:
-            raise ConnectionRefusedError("AppEEARS API crashed.")
-    except KeyError:
-        pass
+    if status_response.get("crashed"):
+        raise RuntimeError("AppEEARS API crashed")
 
-    try:
+    if "status" in status_response:
         return status_response["status"]
-    except KeyError:
-        status = status_response["progress"]["details"][-1]
-        return status["desc"]
 
+    details = (
+        status_response
+        .get("progress", {})
+        .get("details", [])
+    )
+
+    if len(details):
+        return details[-1].get("desc", "UNKNOWN")
+
+    return "UNKNOWN"
 
 def download_task(task_response, bundle_response, token, path):
 

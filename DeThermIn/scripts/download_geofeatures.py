@@ -29,6 +29,9 @@ def download_available_areas():
         size=(1024,1024)
     )
 
+    # creates the folder if it doesn't exist
+    os.makedirs(path, exist_ok=True)
+
     with open(path+'Dutch_cities.kmz', 'wb') as f:
         f.write(gpkg.read())
 
