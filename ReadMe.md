@@ -1,5 +1,11 @@
 # DeThermIn: a complete workflow towards spatio-temporally refined Land Surface Temperature
 
+<div align=center>
+	
+![](_figures/logo.png)
+
+</div>
+
 The aim of this workflow is to derive Dense Thermal Information (**DeThermIn**) for urban areas. More precisely, it refines Land Surface Temperature (LST) from space-borne thermal imagery at a nearly-continuous temporal resolution and up to 0.5 meters of spatial resolution.
 
 This repository aims to make easily reproducible the methodology and tools used in the following:
@@ -122,6 +128,8 @@ The selector will then look for an ortho-image of this location to give an overv
 
 If the workflow has already been fully (or partially) processed for a given area of interest, it is possible to visualise the results (or to continue its processing). A list of processed areas will then be prompted to the user, who can also continue with a new area of interest.
 
+![](_figures/workflow_element_2.png)
+
 #### Launch the pre-processing
 
 After the selection of an area of interest, the parameters are recalled and you are asked to confirm before continuing to the pre-processing.
@@ -139,6 +147,10 @@ The pre-processing step allows to:
 → **geostationary thermal data**
 
 Multispectral and airborne LiDAR data are then merged together at the spatial resolution set in the parameters (default is 2m). We later refer to it as **ancillary data**.
+
+![](_figures/workflow_element_1.png)
+![](_figures/workflow_element_3.png)
+
 
 #### Fitting of a Diurnal Temperature Cycle Model
 
