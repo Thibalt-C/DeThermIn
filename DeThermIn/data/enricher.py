@@ -206,7 +206,7 @@ def get_irradiated_energy(
                                      dims=["time", "y", "x"],
                                      coords={"time": dataset.time, "y": dataset.y, "x": dataset.x},
                                      attrs={"standard_name": f"Irradiated energy, last {time_window}h",
-                                            "units": "kWh/m^2",
+                                            "units": "Wh/m^2",
                                             "description": f"Irradiated energy for clear sky conditions in a time window of {time_window} hours, computed using a {frequency}-hour frequency",
                                             "plot_kwargs": {"cmap": "jet"}
                                             })
@@ -241,7 +241,7 @@ def get_irradiated_energy(
 
         irrad = compute_irradiance(dataset, shadows, loc, time_axis)
 
-        energies = irrad * (frequency) / 1e3 # to kWh/m^2
+        energies = irrad * (frequency) # Wh/m^2
         dataset[name].data[n,:,:] = xr.DataArray(energies,
                                                      dims=["subtime", "y", "x"]
                                                      ).sum("subtime")
@@ -348,6 +348,31 @@ def get_hsv_channels(dataset):
     return dataset
 
 
+def match_orthoimage_shadow(dataset):
+    """
+    Finds the shadow matching the orthoimage's actual shadow.
+    """
+
+    orthoimage = dataset.orthoimage
+
+    min_score = np.inf
+
+    for el in dataset.sun_elevation.values[:-1]:
+        for az in dataset.sun_azimuth.values:
+
+            shadow = dataset.sel(sun_elevation=el, sun_azimuth=az).shadow
+
+            score = orthoimage.where(shadow).sum("channel").mean()
+
+            if score < min_score:
+                min_score = score
+                best_el = el
+                best_az = az
+
+    dataset["orthoimage_shadow"] = dataset.sel(sun_elevation=best_el, sun_azimuth=best_az).shadow
+
+    return dataset
+
 
 def enrich_dataset(
         dataset : xr.Dataset,
@@ -358,9 +383,10 @@ def enrich_dataset(
     """
 
     if verbose:
-        print("Getting extra layers (HSV channels, distance grids)...")
+        print("Getting extra layers (HSV channels, distance grids, ortho-image shadow)...")
     dataset = get_distance_grids(dataset)
     dataset = get_hsv_channels(dataset)
+    dataset = match_orthoimage_shadow(dataset)
 
     dataset = get_illumination(dataset, verbose=verbose)
 

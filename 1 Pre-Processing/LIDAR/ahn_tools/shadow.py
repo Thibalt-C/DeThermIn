@@ -92,7 +92,7 @@ def get_shadow(dem,
 
 def add_shadow(dataset, resolution, data_for_derivation, verbose=True):
 
-    dataset.coords['sun_elevation'] = np.linspace(0, 90, 9)
+    dataset.coords['sun_elevation'] = np.linspace(0, 90, 19)
     dataset.coords['sun_azimuth'] = np.linspace(0, 360 - 360 / 16, 16)
     dataset.sun_elevation.attrs = {"standard_name": "Sun elevation", "units": "°"}
     dataset.sun_azimuth.attrs = {"standard_name": "Sun azimuth", "units": "°"}

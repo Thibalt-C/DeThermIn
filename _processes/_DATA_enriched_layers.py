@@ -10,15 +10,15 @@ import os
 import sys
 
 path = sys.argv[1]
+name = sys.argv[2]
 
-name = "1_4445_43_6085_05_01_2021_07_30_2021"
 dc_path = os.path.join(parameters["processed_data_path"], f"{name}_{extensions['enriched_ancillary_data']}.pkl")
 dc_enriched = read_datacube(dc_path)
 
 small_dc = deepcopy(dc_enriched)
-small_dc.data = small_dc.data.rio.clip_box(*(1.43,43.605,1.445,43.615), crs="EPSG:4326")
+small_dc.data = small_dc.data.rio.clip_box(*(2.35,48.919,2.365,48.928), crs="EPSG:4326")
 
-fig, axes = plt.subplots(2,3, figsize=(16,7))
+fig, axes = plt.subplots(3,3, figsize=(16,10))
 
 for t in range(1,4):
 
@@ -27,17 +27,24 @@ for t in range(1,4):
     axes[0,t-1].axis("off")
     axes[0,t-1].set_title(pd.to_datetime(layer.time.values).strftime("%H:%M UTC"), fontsize=18)
     im.colorbar.set_ticks([layer.min(), layer.max()])
-    im.colorbar.set_label(layer.attrs["standard_name"] + f" [{layer.attrs["units"]}]", fontsize=14, labelpad=-10)
+    im.colorbar.set_label(layer.attrs["standard_name"] + f"\n[{layer.attrs["units"]}]", fontsize=14, labelpad=-10)
 
-    layer = small_dc.data.isel(time=t*3).energy
+    layer = small_dc.data.isel(time=t*3).energy_1h
     im = layer.plot(cmap=layer.plot_kwargs["cmap"], ax=axes[1,t-1])
     axes[1,t-1].axis("off")
     axes[1,t-1].set_title("")
     im.colorbar.set_ticks([layer.min(), layer.max()])
-    im.colorbar.set_label(layer.attrs["standard_name"] + f" [{layer.attrs["units"]}]", fontsize=14, labelpad=-10)
+    im.colorbar.set_label(layer.attrs["standard_name"] + f"\n[{layer.attrs["units"]}]", fontsize=14, labelpad=-10)
+
+    layer = small_dc.data.isel(time=t * 3).energy_3h
+    im = layer.plot(cmap=layer.plot_kwargs["cmap"], ax=axes[2, t - 1])
+    axes[2, t - 1].axis("off")
+    axes[2, t - 1].set_title("")
+    im.colorbar.set_ticks([layer.min(), layer.max()])
+    im.colorbar.set_label(layer.attrs["standard_name"] + f"\n[{layer.attrs["units"]}]", fontsize=14, labelpad=-10)
 
 plt.tight_layout()
-add_scale(axes[1,0], small_dc, scale_size=200)
+add_scale(axes[2,0], small_dc, scale_size=100)
 fig.savefig(f"{path}enriched_layers_dynamic.png", bbox_inches="tight", dpi=300)
 
 
@@ -56,7 +63,7 @@ axes[1].set_title("Daily illumination", fontsize=12)
 im.colorbar.set_ticks([layer.min(), layer.max()])
 im.colorbar.set_label(layer.attrs["standard_name"] + f" [{layer.attrs["units"]}]", fontsize=12, labelpad=-10)
 
-add_scale(axes[0], small_dc, scale_size=200)
+add_scale(axes[0], small_dc, scale_size=100)
 
 for ax in axes:
     ax.axis("off")

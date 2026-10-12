@@ -4,7 +4,7 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import cross_val_score, GridSearchCV, KFold
 
-binary_features = ["mineralized", "vegetalized", "artificial", "buildings_mask", "water_mask", "cloud_mask", "shadow"]
+binary_features = ["mineralized", "vegetalized", "artificial", "buildings_mask", "water_mask", "cloud_mask", "shadow", "orthoimage_shadow"]
 
 
 def format_for_learning(dataset, features, no_y=False):

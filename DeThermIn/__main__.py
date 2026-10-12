@@ -2,7 +2,7 @@
 Command line interface for the DeThermIn project.
 """
 
-from .scripts import selection, predownload, train_ResUNet, set_params
+from .scripts import selection, predownload, train_ResUNet, set_params, download_available_areas
 import sys
 
 def cli():
@@ -20,6 +20,7 @@ def cli():
     elif cmd == "train":
         train_ResUNet()
     elif cmd == "predownload":
+        download_available_areas()
         predownload()
     else:
         print(f"Unknown command: {cmd}")

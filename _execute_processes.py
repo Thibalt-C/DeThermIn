@@ -3,7 +3,7 @@ import subprocess
 import os
 import sys
 import time
-from DeThermIn.metadata import metadata, extensions, parameters
+from DeThermIn.metadata import extensions, parameters
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -11,13 +11,17 @@ folder = BASE_DIR / "_processes"
 path = str(BASE_DIR / "_figures") + "/"
 
 CWDs = {
-    #"_MAIN_": BASE_DIR,
-   # "_FUSION_": BASE_DIR / metadata["fusion_path"],
-    "_SR_": BASE_DIR / metadata["super_resolution_path"]
+    #"_DATA_": BASE_DIR,
+    "_MISC_": BASE_DIR,
+    #"_SPECS_": BASE_DIR
+    #"_FUSION_": BASE_DIR / metadata["fusion_path"],
+    #"_SR_": BASE_DIR / metadata["super_resolution_path"]
 }
 
 extra_args = {
-    "_MAIN_": [],
+    "_SPECS_": [],
+    "_MISC_": [],
+    "_DATA_": ["2_3573_48_9222_06_01_2026_08_31_2026"],
     "_FUSION_": [parameters["processed_data_path"],
                  "4_4684_51_9249_06_01_2026_08_31_2026",
                  extensions["fusioned_LSTs"],

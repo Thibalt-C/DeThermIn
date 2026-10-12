@@ -17,7 +17,7 @@ actual_resolution = decim * base_resol
 print(f"Computing for a spatial resolution of {actual_resolution:.2f} m.")
 print(f"Country: {country}")
 
-gdf = pickle.load(open(gdf_pkl, 'rb'))
+time.sleep(2); gdf = pickle.load(open(gdf_pkl, 'rb'))
 
 with open("folders.json", "r") as f:
     folders = json.load(f)
@@ -26,6 +26,8 @@ lidar_decim = 10
 build = True
 layer_for_derivation = "DSM"
 threshold_for_warning = np.inf
+shadow_azimuth_resolution = 22.5
+shadow_elevation_resolution = 5.0
 verbose = True
 
 
@@ -34,7 +36,7 @@ if country == "FRA":
     import lidar_hd_tools as lhd  # (FRA) dedicated PyPI package
 
     download_func = lhd.download_data
-    download_params = [gdf, decim, lidar_decim, build, layer_for_derivation, threshold_for_warning, verbose]
+    download_params = [gdf, decim, lidar_decim, build, layer_for_derivation, shadow_azimuth_resolution, shadow_elevation_resolution,  threshold_for_warning, verbose]
 
     buildings_func = lhd.get_buildings_mask
     land_cover_func = lhd.get_land_occupation

@@ -8,8 +8,8 @@ import os
 import sys
 
 path = sys.argv[1]
+name = sys.argv[2]
 
-name = "2_3573_48_9222_06_01_2026_08_31_2026"
 geostationary_path = os.path.join(parameters["processed_data_path"], f"{name}_{extensions['geostationary']}.pkl")
 narrow_swath_path = os.path.join(parameters["processed_data_path"], f"{name}_{extensions['narrow-swath']}.pkl")
 

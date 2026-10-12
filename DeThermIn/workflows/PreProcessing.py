@@ -34,7 +34,7 @@ def launch_data_blending(
                                 end.strftime("%m-%d-%Y"),
                                 str(resolution),
                                 country,
-                                bbox_size,
+                                str(bbox_size),
                                 extensions["blended_ancillary_data"],
                                 extensions["lidar"],
                                 extensions["multispectral"],

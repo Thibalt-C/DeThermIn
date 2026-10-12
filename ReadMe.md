@@ -3,7 +3,7 @@
 The aim of this workflow is to derive Dense Thermal Information (**DeThermIn**) for urban areas. More precisely, it refines Land Surface Temperature (LST) from space-borne thermal imagery at a nearly-continuous temporal resolution and up to 0.5 meters of spatial resolution.
 
 This repository aims to make easily reproducible the methodology and tools used in the following:
-> Chardon, T. (2026): *Use of 3D Point Clouds with Advanced Deep Learning Techniques for Satellite Thermal Imagery Refinement in Urban Environments*. TU Delft [internship report], supervisor: Lindenbergh, R.C.
+> **Chardon, T. (2026): *Use of 3D Point Clouds with Advanced Deep Learning Techniques for Satellite Thermal Imagery Refinement in Urban Environments*. TU Delft [internship report], supervisor: Lindenbergh, R.C.**
 
 Please cite it if you make use of part or totality of this work.
 
@@ -27,7 +27,7 @@ The DTC model enables continuous estimation of LST, as long as it is assumed to 
 
 The DeThermIn workflow has been developed and tested using python version 3.12. The following packages are required:
 
-| Package | Version | Goal |
+| Package | Tested version | Goal |
 | --- | --- | --- |
 | ``cartopy`` | 0.25.0 | geographic tools for `matplotlib` |
 | ``cmcrameri`` | 1.9 | colormaps |
@@ -63,6 +63,13 @@ It is recommended to create an environment dedicated to this workflow beforehand
 
 The workflow requires enough storage to: (1) download the different data to process; (2) store the processed data. Please consider using an external drive with at least 50 GB for a convenient use. 
 
+In addition, it is necessary to create accounts for the following platforms dedicated to the downloading of the data:
+- AppEEARS (NASA): https://appeears.earthdatacloud.nasa.gov
+- Copernicus back-end of OpenEO: https://openeo.dataspace.copernicus.eu
+- LSA-SAF data service (EUMETSAT): https://datalsasaf.lsasvcs.ipma.pt
+
+
+
 ## Getting started
 
 The DeThermIn workflow has been designed to ease the choice of the area of interest. It also enables to edit the parameters that influence the different steps.
@@ -81,7 +88,9 @@ You also need to prior download the geostationary data. This can be done by exec
 python -m DeThermIn predownload
 ```
 
-It will download the geostationary data for all the available areas (i.e. France and the Netherlands) from the 1st of June 2026 to the 31th of August 2026. This date can be edited in the parameters. Depending on the used date range, the data can come from EUMETSAT’s Meteosat Third Generation (MTG) or Meteosat Second Generation (MSG).
+It will download in advance the following:
+1. geo-file of the available areas (where the workflow should work).
+2. geostationary thermal imagery of all the available areas for a given time window — to be set in the parameters (by default: 01/06/2026 → 31/08/2026). The data can come from EUMETSAT’s Meteosat Third Generation (MTG) or Meteosat Second Generation (MSG), depending on the selected time window.
 
 ### Train the super-resolution model
 
@@ -91,6 +100,7 @@ The deep neural network used for the super-resolution is provided as pre-trained
 python -m DeThermIn train
 ```
 
+> Note that the training requires to first process the area matching with the ground truth LST, which might take a considerable amount of time (estimated 6 hours) and storage (data ready for training takes about 15 GB). This step is yet integrated in the script and does not require any additionnal action from the user.
 
 ### Launch in selection mode
 
@@ -128,25 +138,28 @@ The pre-processing step allows to:
 - Retrieve the geostationary data corresponding to the area of interest\
 → **geostationary thermal data**
 
-Multispectral and airborne LiDAR data are then merged together at a selected spatial resolution (recalled before pre-processing). We later refer to it as ancillary data.
+Multispectral and airborne LiDAR data are then merged together at the spatial resolution set in the parameters (default is 2m). We later refer to it as **ancillary data**.
 
 #### Fitting of a Diurnal Temperature Cycle Model
 
-A Diurnal Temperature Cycle model decomposes the LST into daytime and nighttime behaviours. It comes with two time parameters (time of the maximal LST and time separating day/night beahaviours) and three LST parameters (LST at sunrise, maximal LST and LST at the sunrise of the next day) to estimate. 
+A **Diurnal Temperature Cycle (DTC) model** decomposes the LST into daytime and nighttime behaviours. It comes with two time parameters (time of the maximal LST and time separating day/night behaviours) and three LST parameters (LST at sunrise, maximal LST and LST at the sunrise of the next day) to estimate. 
 
+Such model is fitted to the individual pixels of the geostationary data, for each diurnal cycle. A boundary condition between two following cycles ensures continuity at the sunrise. Other constrains are indirectly penalised via regularisation, such as a sunrise LST higher than the maximal LST, or higher than the LST at the preceding sunset.
 
-Such model is fitted to the individual pixels of the geostationary data, for each diurnal cycle. A boundary condition between two following cycles ensures continuity at the sunrise. Other constrains are indirectly penalised via regularisation, such as a sunrise LST higher than the maximal LST, and a non-decreasing behaviour during nighttime (meaning that the next sunrise’s LST is higher than the LST at the sunset).
+We defined a **clear-sky pixel** as a pixel with at least two recorded LSTs for each of the morning, afternoon and night (relative to the Sun’s position, here). A DTC model can be fitted only to those clear-sky pixels. A **clear-sky day** defines a diurnal cycle with all fitted pixels.
 
-We defined a clear-sky pixel as a pixel with at least two recorded LSTs for each of the morning, afternoon and night (relative to the Sun’s position, here). A DTC model can be fitted only to those clear-sky pixels. A clear-sky day defines a diurnal cycle with all fitted pixels.
+![Diurnal Temperature Cycle model from [Göttsche & Olesen (2001)](#references).](_figures/DTC_model.png)
 
 
 #### Choose a specific day for spatio-temporal unmixing
 
 When the DTC model has been fitted to the data, clear-sky days are listed and the user is asked to choose one of them to continue with the next step.
 
-This further step, called spatio-temporal unmixing, aims to downscale the DTC parameters of the selected day at the resolution of the narrow-swath thermal data. It computes a co-occurring LST at the coarser resolution for each clear-sky narrow-swath acquisition (i.e. without missing data). Then, for each of the three LST parameters of the DTC model, a weighted sum of the fine and coarse LST tuples is performed using a moving window that accounts for the similarity of the neighbouring pixels. The time of the day of the acquisitions is also weighted.
+This further step, called **spatio-temporal unmixing**, aims to downscale the DTC parameters of the selected day at the resolution of the narrow-swath thermal data. It computes a co-occurring LST at the coarser resolution for each clear-sky (i.e. without missing data) narrow-swath acquisition. Then, for each of the three LST parameters of the DTC model, a weighted sum of the fine and coarse LST tuples is performed using a moving window that accounts for the similarity of the neighbouring pixels. The time of the day of the acquisitions is also weighted.
 
 The resulting time series has the spatial resolution of the narrow-swath mission (here 70 m) and is temporally continuous, with a sampling rate similar to the geostationary mission (here 1 h).
+
+![Downscaled LST after spatio-temporal unmixing (1h / 70m)](_figures/workflow_element_4.png)
 
 #### Process super-resolution
 
@@ -156,27 +169,21 @@ The super-resolution is made independently for each timestamp of the time series
 
 When processed, a time series with LST at the resolution of the ancillary data is produced. 
 
+![DeThermIn product obtained after the super-resolution (here 1h / 2m)](_figures/DeThermIn_example.gif)
+
 #### Visualisation
 
 A processed area can be visualised with interactive maps, static or animated plots. 
 
-## Parameters of the workflow
+Here is an exemple of an interactive map to be generated with an end-product.
 
-Here is the exhaustive list of the parameters that can be edited by the user of the workflow, using:
-
-```
-python -m DeThermIn parameters
-```
-
-
-
+<iframe width="560" height="315"
+  src="_figures/4_4684_51_9249_06_01_2026_08_31_2026_DeThermIn_20260626110000.html">
+</iframe>
 
 ## References
 
 [1] Slow Onset Events | UNFCCC. (n.d.). Retrieved 29 September 2026, from https://unfccc.int/process/bodies/constituted-bodies/WIMExCom/SOEs
 
 [2] Göttsche, F.-M., & Olesen, F. S. (2001). Modelling of diurnal cycles of brightness temperature extracted from METEOSAT data. Remote Sensing of Environment, 76(3), 337–348. https://doi.org/10.1016/S0034-4257(00)00214-5
-
-
-[3] 
 

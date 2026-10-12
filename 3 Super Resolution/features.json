@@ -39,6 +39,7 @@
     "energy_1h",
     "energy_2h",
     "energy_3h",
+    "orthoimage_shadow",
     "brightness",
     "saturation",
     "hue",

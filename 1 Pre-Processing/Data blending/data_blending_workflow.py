@@ -47,6 +47,9 @@ if not os.path.exists(dataset_paths[1]): # ECOSTRESS data
     username = input("")
     print("PASSWORD:")
     password = input("")
+else:
+    username = ""
+    password = ""
 
 args = [
     [temporary_gdf_pickle, name, str(resolution), processed_files_folder, extensions["lidar"], country], # LIDAR
