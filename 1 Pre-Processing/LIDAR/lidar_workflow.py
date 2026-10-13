@@ -27,7 +27,7 @@ build = True
 layer_for_derivation = "DSM"
 threshold_for_warning = np.inf
 shadow_azimuth_resolution = 22.5
-shadow_elevation_resolution = 5.0
+shadow_elevation_resolution = 10.0
 verbose = True
 
 

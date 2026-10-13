@@ -3,7 +3,7 @@ import subprocess
 import os
 import sys
 import time
-from DeThermIn.metadata import extensions, parameters
+from DeThermIn.metadata import metadata, extensions, parameters
 
 BASE_DIR = Path(__file__).resolve().parent
 

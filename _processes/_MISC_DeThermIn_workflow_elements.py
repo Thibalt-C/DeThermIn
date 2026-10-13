@@ -158,7 +158,7 @@ for t in range(tot):
     n = tot - t - 1
     extent = [n * dx, n * dx + ims.values.shape[2], n * dy, n * dy + ims.values.shape[1]]
     ax.imshow(ims.isel(time=t).values,
-              cmap="RdYlBu_r", vmin=30, vmax=45,
+              cmap="RdYlBu_r",
               extent=extent, alpha=1, aspect="equal")
 ax.text((tot-1)*dx + ims.values.shape[1], (tot-1)*dy + ims.values.shape[2], " DeThermIn \n 2 m / 1 h", fontsize=20, ha="left", va="top")
 ax.set_xlim([0, (tot-1)*dx + ims.values.shape[2]])

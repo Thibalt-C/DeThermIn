@@ -353,23 +353,34 @@ def match_orthoimage_shadow(dataset):
     Finds the shadow matching the orthoimage's actual shadow.
     """
 
-    orthoimage = dataset.orthoimage
+    shadow_mask = dataset.saturation / dataset.brightness # shadow has high saturation and low brightness
+    log_shadow = np.log10(shadow_mask.where(shadow_mask > 0, 0.00001))
+    log_shadow = log_shadow.where(log_shadow > 0, -1)
 
-    min_score = np.inf
+    best = -np.inf
 
-    for el in dataset.sun_elevation.values[:-1]:
+    for el in dataset.sun_elevation.values[1:-1]: # exclude extreme cases (0 and 90°)
         for az in dataset.sun_azimuth.values:
 
             shadow = dataset.sel(sun_elevation=el, sun_azimuth=az).shadow
 
-            score = orthoimage.where(shadow).sum("channel").mean()
+            inside = log_shadow.where(shadow).mean()
+            outside = log_shadow.where(~shadow).mean()
 
-            if score < min_score:
-                min_score = score
+            score = inside - outside
+
+            if score > best :
+                best = score
                 best_el = el
                 best_az = az
 
     dataset["orthoimage_shadow"] = dataset.sel(sun_elevation=best_el, sun_azimuth=best_az).shadow
+    dataset["orthoimage_shadow"].attrs["standard_name"] = "Orthoimage's estimated shadow"
+
+    for feature in ["hue", "saturation", "brightness"]: # randomises the orthoimage where there is shadow
+        dataset[f"{feature}_masked"] = dataset[feature].where(~dataset.orthoimage_shadow,
+                                                  np.random.random(dataset.orthoimage_shadow.rio.shape)
+                                                  )
 
     return dataset
 
