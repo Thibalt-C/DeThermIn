@@ -185,7 +185,7 @@ When processed, a time series with LST at the resolution of the ancillary data i
 
 #### 6. Visualisation
 
-A processed area can be visualised with interactive maps, static or animated plots. [Here](https://thibalt-c.github.io/DeThermIn/_figures/4_4684_51_9249_06_01_2026_08_31_2026_DeThermIn_20260626110000.html) can be seen an exemple of an interactive map to be generated with an end-product.
+A processed area can be visualised with interactive maps, static or animated plots. [Here](https://thibalt-c.github.io/DeThermIn/_figures/2_3573_48_9222_06_01_2026_08_31_2026_DeThermIn_20260624140000.html) can be seen an exemple of an interactive map to be generated with an end-product.
 
 ## References
 
