@@ -150,15 +150,19 @@ fig.savefig(path+"workflow_element_4.png", bbox_inches="tight", dpi=300)
 
 tot = len(DeThermIn_dc.data.time)
 
-fig, ax = plt.subplots(figsize=(10, 14))
+
+ims = DeThermIn_dc.data.SR_LST.where(DeThermIn_dc.data.SR_LST.notnull(), drop=True)
+dx = 5; dy = 5
+fig, ax = plt.subplots(figsize=(6, 7))
 for t in range(tot):
     n = tot - t - 1
-    extent = [n * dx, n * dx + fusioned.shape[2], n * dy, n * dy + fusioned.shape[1]]
-    ax.imshow(DeThermIn_dc.data.SR_LST.isel(time=t).values, cmap="RdYlBu_r", vmin=30, vmax=35,
-              extent=extent, alpha=1)
-ax.text(0, -10, "DeThermIn \n2 m / 1 h", fontsize=20, ha="left", va="top")
-ax.set_xlim([0, (tot-1)*dx + fusioned.shape[2]])
-ax.set_ylim([0, (tot-1)*dy + fusioned.shape[1]])
+    extent = [n * dx, n * dx + ims.values.shape[2], n * dy, n * dy + ims.values.shape[1]]
+    ax.imshow(ims.isel(time=t).values,
+              cmap="RdYlBu_r", vmin=30, vmax=45,
+              extent=extent, alpha=1, aspect="equal")
+ax.text((tot-1)*dx + ims.values.shape[1], (tot-1)*dy + ims.values.shape[2], " DeThermIn \n 2 m / 1 h", fontsize=20, ha="left", va="top")
+ax.set_xlim([0, (tot-1)*dx + ims.values.shape[2]])
+ax.set_ylim([0, (tot-1)*dy + ims.values.shape[1]])
 ax.axis("off")
 plt.title("")
 fig.savefig(path+"workflow_element_5.png", bbox_inches="tight", dpi=300)

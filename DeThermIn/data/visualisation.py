@@ -88,7 +88,9 @@ def plot_orthophoto(dataset, ax=None):
     return ax
 
 
-def plot_timeseries(dataset, attribute, gridlines=True, save=False, **kwargs):
+def plot_timeseries(dataset, attribute, gridlines=True, savefig=None, **kwargs):
+
+    dataset = dataset.where(dataset[attribute].notnull(), drop=True)
 
     projection = get_projection(dataset.rio.crs)
 
@@ -99,16 +101,22 @@ def plot_timeseries(dataset, attribute, gridlines=True, save=False, **kwargs):
         image = dataset.isel(time=frame)
         ax, quadmesh = plot_dataset(image, attribute, ax=ax, gridlines=gridlines, add_colorbar=False, **kwargs)
         quadmesh.set_clim(vmin=dataset[attribute].min(), vmax=dataset[attribute].max())
-        ax.set_title(f"{pd.to_datetime(image.time.values).strftime('%d-%m-%Y %H:%M')}", fontsize=16)
+        ax.set_title(f"{pd.to_datetime(image.time.values).strftime('%d-%m-%Y %H:%M')}", fontsize=25)
         return ax
 
     ax, quadmesh = plot_dataset(dataset.isel(time=0), attribute, ax=ax, gridlines=gridlines, **kwargs)
     quadmesh.set_clim(vmin=dataset[attribute].min(), vmax=dataset[attribute].max())
+    if ("standard_name" in dataset[attribute].attrs) & ("units" in dataset[attribute].attrs):
+        label = f"{dataset[attribute].attrs["standard_name"]} [{dataset[attribute].attrs['units']}]"
+    else:
+        label = attribute
+    quadmesh.colorbar.set_label(label, fontsize=16, labelpad=-10)
+    quadmesh.colorbar.set_ticks([dataset[attribute].min(), dataset[attribute].max()])
     plt.draw()
     ani = FuncAnimation(fig, update, frames=len(dataset.time), interval=500)
     plt.tight_layout()
-    if save:
-        ani.save("LST.gif", writer="pillow", fps=5)
+    if savefig:
+        ani.save(savefig, writer="pillow", fps=5)
     if get_ipython() is not None:
         display(HTML(ani.to_jshtml()))
         plt.close(fig)
