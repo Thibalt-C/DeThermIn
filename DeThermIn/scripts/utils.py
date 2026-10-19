@@ -119,6 +119,8 @@ def select_processed_area(processed_areas, filenames, regions, zones):
         from_scratch = True
         filename = None
         processing_status = None
+        region = None
+        zone = None
 
 
     return processing_status, filename, from_scratch, region, zone

@@ -381,6 +381,47 @@ def match_orthoimage_shadow(dataset):
         dataset[f"{feature}_masked"] = dataset[feature].where(~dataset.orthoimage_shadow,
                                                   np.random.random(dataset.orthoimage_shadow.rio.shape)
                                                   )
+        dataset[f"{feature}_masked"].attrs["standard_name"] = f"Orthoimage's {feature} with shadow"
+
+    return dataset
+
+
+def consecutive_shadow(dataset):
+
+    da = xr.concat([dataset.shadow, dataset.shadow], dim="time")
+
+    dt = float(dataset.time[-1] - dataset.time[0]) / len(dataset.time) / 1e9 / 60**2 # hours
+
+    def consecutive_true(arr):
+        out = np.zeros_like(arr, dtype=np.float32)
+
+        for t in range(arr.shape[0]):
+            if t == 0:
+                out[t] = arr[t]
+            else:
+                out[t] = np.where(arr[t], out[t-1] + dt, 0)
+
+        return out
+
+    counts = xr.apply_ufunc(
+        consecutive_true,
+        da,
+        input_core_dims=[["time"]],
+        output_core_dims=[["time"]],
+        vectorize=True,
+        dask="parallelized",
+        output_dtypes=[np.float32],
+    )
+
+    counts = counts.isel(time=slice(len(da.time)//2, None))
+    counts = xr.where(counts >= 24, 24, counts)
+
+    dataset["consecutive_shadow"] = counts.transpose("time", "y", "x")
+    dataset["consecutive_shadow"].attrs = {
+        "units": "h",
+        "standard_name": "consecutive shadowed time",
+        "plot_kwargs": {"cmap": "gray_r", "vmin": 0, "vmax": 24}
+    }
 
     return dataset
 
@@ -406,6 +447,8 @@ def enrich_dataset(
     dataset = get_irradiated_energy(dataset, time_window=3, frequency=1/6, verbose=verbose)
 
     dataset = rebuild_shadow(dataset, verbose=verbose)
+
+    dataset = consecutive_shadow(dataset)
 
     if verbose:
         print("Computing irradiance...")

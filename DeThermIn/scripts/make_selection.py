@@ -63,6 +63,8 @@ def selection():
         print("-------------------------------------------------")
         input("\nPress Enter to start the pre-processing step...")
 
+        processing_status = "partially pre-processed (0/4)"
+
 
     # 2. Pre-processing of the data
 

@@ -39,6 +39,7 @@
     "energy_1h",
     "energy_2h",
     "energy_3h",
+    "consecutive_shadow",
     "brightness_masked",
     "saturation_masked",
     "hue_masked",
