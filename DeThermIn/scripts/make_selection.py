@@ -10,7 +10,7 @@ import datetime
 from ..data.datacube import read_datacube
 from ..metadata import extensions, parameters, start, end, resolution, bbox_size, training_features
 from ..workflows import pre_process, DTC_fitting, spatio_temporal_fusion, super_resolution
-from .utils import bold_text, get_processed_areas, select_processed_area, select_area_of_interest, check_requirements
+from .utils import bold_text, get_processed_areas, select_processed_area, select_area_of_interest, check_requirements, get_geostationary_path
 
 
 def selection():
@@ -72,11 +72,7 @@ def selection():
 
         check_requirements()
 
-        for file in os.listdir(parameters["geostationary_data_path"]):
-            if file.__contains__(f"{region}"):
-                geos_path = os.path.join(parameters["geostationary_data_path"], file)
-        if not os.path.exists(geos_path):
-            raise Exception("The geostationary data has not been downloaded. Please use the `predownload` command first.")
+        geos_path = get_geostationary_path(region)
 
         if not from_scratch:
             dc = read_datacube(lidar_path)

@@ -127,10 +127,11 @@ def select_processed_area(processed_areas, filenames, regions, zones):
 
 
 
-def select_area_of_interest():
+def select_area_of_interest(lat=None, lon=None, size=None):
 
-    lat = float(input("\nProvide the latitude of the area of interest: "))
-    lon = float(input("Provide the longitude of the area of interest: "))
+    if lat is None and lon is None:
+        lat = float(input("\nProvide the latitude of the area of interest: "))
+        lon = float(input("Provide the longitude of the area of interest: "))
 
     aoi = available_areas.where(available_areas.contains(Point(lon, lat))).dropna().reset_index(drop=True)
 
@@ -142,10 +143,11 @@ def select_area_of_interest():
         country = aoi.loc[0, "country"]
         print(f"You selected a point located in {bold_text(city)} ({bold_text(country)}).")
 
-    size = 0
-    while (size < 500) | (size > 10000):
-        size = int(
-            input("Provide the size of the area of interest around the given coordinates (between 500 and 10000 m): "))
+    if size is None:
+        size = 0
+        while (size < 500) | (size > 10000):
+            size = int(
+                input("Provide the size of the area of interest around the given coordinates (between 500 and 10000 m): "))
 
     print("The area of interest covers the area shown in the following image:")
 
@@ -193,6 +195,15 @@ def select_area_of_interest():
     input("\nPress Enter to continue with this area of interest...")
 
     return lat, lon, city, region, country, size, AOI
+
+
+def get_geostationary_path(region):
+    for file in os.listdir(parameters["geostationary_data_path"]):
+        if file.__contains__(f"{region}"):
+            geos_path = os.path.join(parameters["geostationary_data_path"], file)
+    if not os.path.exists(geos_path):
+        raise Exception("The geostationary data has not been downloaded. Please use the `predownload` command first.")
+    return geos_path
 
 
 def check_requirements():
