@@ -43,6 +43,39 @@ def get_sun_pos(
     return dataset
 
 
+def get_shadow(
+    dataset: xr.Dataset,
+    sun_elevation: float,
+    sun_azimuth: float,
+) -> xr.DataArray:
+    """
+    Gets the shadow configuration for a given sun elevation and azimuth angle.
+    """
+    shadow = dataset.shadow
+
+    if "shadow_time" in shadow.dims:
+
+        dist = (
+            (dataset.sun_elevation - sun_elevation) ** 2
+            + (dataset.sun_azimuth - sun_azimuth) ** 2
+        )
+
+        return shadow.isel(
+            shadow_time=dist.argmin("shadow_time")
+        )
+
+    elif (
+        "sun_elevation" in shadow.dims
+        and "sun_azimuth" in shadow.dims
+    ):
+
+        return shadow.sel(
+            sun_elevation=sun_elevation,
+            sun_azimuth=sun_azimuth,
+            method="nearest",
+        )
+
+
 def rebuild_shadow(
         dataset : xr.Dataset,
         verbose : Optional[bool] = True
@@ -71,9 +104,11 @@ def rebuild_shadow(
         e = dataset.elevation.sel(time=t)
         a = dataset.azimuth.sel(time=t)
 
-        shadow = dataset.sel(time=t).sel(sun_elevation=e, method="nearest"
-                                         ).sel(sun_azimuth=a, method="nearest"
-                                               ).shadow
+        shadow = get_shadow(
+            dataset.sel(time=t),
+            float(e),
+            float(a),
+        )
 
         if e<=0: # nighttime
             shadow = xr.DataArray(data=np.full_like(shadow, True), dims=["y", "x"], coords=shadow.coords)
@@ -232,7 +267,11 @@ def get_irradiated_energy(
 
         for i in range(len(time_axis)):
 
-            shadow = dataset.sel(sun_elevation=elevation[i], method="nearest").sel(sun_azimuth=azimuth[i], method="nearest").shadow
+            shadow = get_shadow(
+                dataset,
+                elevation[i],
+                azimuth[i],
+            )
             if "subtime" not in list(shadow.coords):
                 shadow = shadow.assign_coords({"subtime": np.datetime64(time_axis[i], "ns")})
             shadows.append(shadow)
@@ -278,7 +317,11 @@ def get_illumination(dataset, frequency=0.25, verbose=True):
     iterator = tqdm(range(len(time_axis)), desc=f"Computing daily illumination") if verbose else range(len(time_axis))
 
     for t in iterator:
-        shadow = dataset.sel(sun_elevation=elevation[t], method="nearest").sel(sun_azimuth=azimuth[t], method="nearest").shadow
+        shadow = get_shadow(
+            dataset,
+            elevation[t],
+            azimuth[t],
+        )
         shadows.append(shadow)
     shadows = xr.concat(shadows, dim=("subtime"))
 
@@ -362,7 +405,11 @@ def match_orthoimage_shadow(dataset):
     for el in dataset.sun_elevation.values[1:-1]: # exclude extreme cases (0 and 90°)
         for az in dataset.sun_azimuth.values:
 
-            shadow = dataset.sel(sun_elevation=el, sun_azimuth=az).shadow
+            shadow = get_shadow(
+                dataset,
+                el,
+                az,
+            )
 
             inside = log_shadow.where(shadow).mean()
             outside = log_shadow.where(~shadow).mean()
@@ -374,14 +421,29 @@ def match_orthoimage_shadow(dataset):
                 best_el = el
                 best_az = az
 
-    dataset["orthoimage_shadow"] = dataset.sel(sun_elevation=best_el, sun_azimuth=best_az).shadow
+    dataset["orthoimage_shadow"]= get_shadow(dataset, best_el, best_az).where(
+        (dataset.brightness < 0.3) & (dataset.vegetation == 0),
+        False
+    )
     dataset["orthoimage_shadow"].attrs["standard_name"] = "Orthoimage's estimated shadow"
 
-    for feature in ["hue", "saturation", "brightness"]: # randomises the orthoimage where there is shadow
-        dataset[f"{feature}_masked"] = dataset[feature].where(~dataset.orthoimage_shadow,
-                                                  np.random.random(dataset.orthoimage_shadow.rio.shape)
-                                                  )
-        dataset[f"{feature}_masked"].attrs["standard_name"] = f"Orthoimage's {feature} with shadow"
+    ratios = np.ones(dataset.brightness.values.shape, dtype=np.float32)
+
+    for land in ["water_mask", "artificial", "vegetalized", "mineralized"]:
+        land_mask = dataset[land]
+        land_ratio = dataset.brightness.where(~dataset.orthoimage_shadow & land_mask).median() / dataset.brightness.where(
+            dataset.orthoimage_shadow & land_mask).median()
+        land_ratio = np.where((dataset.orthoimage_shadow & land_mask).broadcast_like(dataset.brightness),
+                              land_ratio.broadcast_like(dataset.brightness), 1)
+        ratios *= land_ratio
+
+    corrected = (dataset.brightness * ratios)
+    corrected = corrected.where(corrected < 1, 1)
+
+    corrected.attrs = dataset.brightness.attrs
+    corrected.attrs["standard_name"] = "Shadow-corrected brightness"
+
+    dataset[f"brightness_corrected"] = xr.DataArray(corrected.values, dims=("y","x"), attrs=corrected.attrs)
 
     return dataset
 
@@ -426,6 +488,46 @@ def consecutive_shadow(dataset):
     return dataset
 
 
+def consecutive_illumination(dataset):
+
+    da = xr.concat([~dataset.shadow, ~dataset.shadow], dim="time")
+
+    dt = float(dataset.time[-1] - dataset.time[0]) / len(dataset.time) / 1e9 / 60**2  # hours
+
+    def consecutive_true(arr):
+        out = np.zeros_like(arr, dtype=np.float32)
+
+        for t in range(arr.shape[0]):
+            if t == 0:
+                out[t] = arr[t] * dt
+            else:
+                out[t] = np.where(arr[t], out[t - 1] + dt, 0)
+
+        return out
+
+    counts = xr.apply_ufunc(
+        consecutive_true,
+        da,
+        input_core_dims=[["time"]],
+        output_core_dims=[["time"]],
+        vectorize=True,
+        dask="parallelized",
+        output_dtypes=[np.float32],
+    )
+
+    counts = counts.isel(time=slice(len(da.time) // 2, None))
+    counts = xr.where(counts >= 24, 24, counts)
+
+    dataset["consecutive_illumination"] = counts.transpose("time", "y", "x")
+    dataset["consecutive_illumination"].attrs = {
+        "units": "h",
+        "standard_name": "consecutive illuminated time",
+        "plot_kwargs": {"cmap": "grey", "vmin": 0},
+    }
+
+    return dataset
+
+
 def enrich_dataset(
         dataset : xr.Dataset,
         verbose : Optional[bool] = True
@@ -440,15 +542,15 @@ def enrich_dataset(
     dataset = get_hsv_channels(dataset)
     dataset = match_orthoimage_shadow(dataset)
 
-    dataset = get_illumination(dataset, verbose=verbose)
+    #dataset = get_illumination(dataset, verbose=verbose)
 
-    dataset = get_irradiated_energy(dataset, time_window=1, frequency=1/6, verbose=verbose)
-    dataset = get_irradiated_energy(dataset, time_window=2, frequency=1/6, verbose=verbose)
-    dataset = get_irradiated_energy(dataset, time_window=3, frequency=1/6, verbose=verbose)
+    dataset = get_irradiated_energy(dataset, time_window=1, frequency=1/4, verbose=verbose)
+    #dataset = get_irradiated_energy(dataset, time_window=2, frequency=1/4, verbose=verbose)
+    #dataset = get_irradiated_energy(dataset, time_window=3, frequency=1/4, verbose=verbose)
 
+    if verbose:
+        print("Processing ortho-image's shadow removal...")
     dataset = rebuild_shadow(dataset, verbose=verbose)
-
-    dataset = consecutive_shadow(dataset)
 
     if verbose:
         print("Computing irradiance...")

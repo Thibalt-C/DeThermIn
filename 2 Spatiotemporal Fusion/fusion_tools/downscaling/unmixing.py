@@ -9,6 +9,7 @@ from .matching import match_cycles, get_pairs, get_target
 from tqdm import tqdm
 from typing import Optional
 from datetime import datetime
+import pandas as pd
 
 def estimator(
         img_window : np.ndarray,
@@ -142,7 +143,8 @@ def spatio_temporal_unmixing(
         alpha_space : float,
         alpha_time : float,
         k : float,
-        window_size : int
+        window_size : int,
+        time_axis : np.ndarray
 ) -> xr.Dataset :
 
     print("Matching coarse and fine datasets...")
@@ -171,7 +173,15 @@ def spatio_temporal_unmixing(
     print("Processing next sunrise LST (3/3)")
     target["LST_next_sunrise"] = process_unmixing(coarse_LST_next_sunrise, cycle_time_sunrise, pairs, *hyperparams)
 
-    fine_LST = compute_LST(target.cycle_time.values,
+    if time_axis is not None:
+        cycle_time = (
+                (time_axis - pd.to_datetime(target.time.values[0])).total_seconds() / 60 / 60 + target.cycle_time.values[0]
+        ).to_numpy()
+    else:
+        time_axis = target.time.values
+        cycle_time = target.cycle_time.values
+
+    fine_LST = compute_LST(cycle_time,
                            target.isel(time=0).thermal_sunset.values,
                            target.isel(time=0).thermal_zenith.values,
                            target.LST_max.values,
@@ -180,21 +190,28 @@ def spatio_temporal_unmixing(
                            mode = "3D_array"
                            )
 
-    target["fine_LST"] = xr.DataArray(fine_LST, dims=("time", "y", "x"),
+    fine_LST = xr.DataArray(fine_LST, dims=("time", "y", "x"),
                                       coords={"y": target.y,
                                               "x": target.x,
-                                              "time": target.time
+                                              "time": time_axis
                                               },
                                       attrs={"units": "°C",
                                              "standard_name": "synthetic Land Surface Temperature",
                                              "plot_kwargs": {"cmap": "RdYlBu_r"}
                                              }
                                                 )
-    for var in target.data_vars:
-        if var in ["LST", "LST_uncertainty", "sunset_time", "QFLAGS", "Q_FLAGS", "delta_LST0", "diurnal_cycle",
-                   "thermal_sunset", "thermal_zenith", "LST_max", "LST_sunrise", "LST_next_sunrise"]:
-            target = target.drop_vars(var)
-    target = target.rename({"LST_rebuilt": "coarse_LST"})
+
+    if time_axis is not None:
+        crs = target.rio.crs
+        target = xr.Dataset({"fine_LST": fine_LST})
+        target = target.rio.write_crs(crs)
+    else:
+        target["fine_LST"] = fine_LST
+        for var in target.data_vars:
+            if var in ["LST", "LST_uncertainty", "sunset_time", "QFLAGS", "Q_FLAGS", "delta_LST0", "diurnal_cycle",
+                       "thermal_sunset", "thermal_zenith", "LST_max", "LST_sunrise", "LST_next_sunrise"]:
+                target = target.drop_vars(var)
+        target = target.rename({"LST_rebuilt": "coarse_LST"})
 
     target = target.where(np.isfinite(target.fine_LST).any(axis=0), drop=True) # remove borders
 

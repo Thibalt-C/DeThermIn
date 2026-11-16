@@ -10,21 +10,11 @@
     "SWIR2"
   ],
 
-  "multispectral_indices": [
-    "fine_LST",
-    "NDVI",
-    "MNDWI",
-    "ENDISI"
-  ],
-
   "static": [
     "fine_LST",
     "SVF",
-    "brightness",
-    "saturation",
-    "hue",
+    "brightness_corrected",
     "vegetation",
-    "cold_spot_distance",
     "buildings_mask",
     "water_mask",
     "mineralized",
@@ -34,15 +24,9 @@
 
   "dynamic": [
     "fine_LST",
-    "illumination",
     "irradiance",
     "energy_1h",
-    "energy_2h",
-    "energy_3h",
-    "consecutive_shadow",
-    "brightness_masked",
-    "saturation_masked",
-    "hue_masked",
+    "brightness_corrected",
     "vegetation",
     "cold_spot_distance",
     "buildings_mask",

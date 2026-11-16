@@ -85,21 +85,35 @@ class CustomRandomForestRegressor(BaseEstimator, RegressorMixin):
                                                max_depth=self.max_depth,
                                                max_features=self.max_features)
 
-    def fit(self, X, y):
+    def fit(self, X, y, is_2D=False):
+
+        if is_2D:
+            H, W, n_features = X.shape
+            nan_mask = (np.isnan(X).any(axis=2)) | np.isnan(y.squeeze())
+            X = X[~nan_mask, :].reshape(-1, n_features)
+            y = y[~nan_mask].reshape(-1, 1).squeeze()
+
         self.scaler = get_scaler(X)
         X = self.scaler.fit_transform(X)
         self.regressor.fit(X, y)
         return self
 
-    def predict(self, X):
+    def predict(self, X, return_2D=False):
+
+        if return_2D:
+            H, W, n_features = X.shape
+            nan_mask = (np.isnan(X).any(axis=2))
+            X = X[~nan_mask, :].reshape(-1, n_features)
+
         X = self.scaler.transform(X)
         y_pred = self.regressor.predict(X)
-        return y_pred
 
-    def score(self, X, y, **kwargs):
-        y_pred = self.predict(X)
-        return -rmse(y.squeeze(), y_pred)  # Negative for minimization
-
+        if return_2D:
+            y_reshaped = np.full((H, W), np.nan)
+            y_reshaped[~nan_mask] = y_pred
+            return y_reshaped
+        else:
+            return y_pred.squeeze()
 
 
 class TrainedResUNet:

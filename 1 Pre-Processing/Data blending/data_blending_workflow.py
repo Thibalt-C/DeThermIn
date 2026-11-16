@@ -18,6 +18,7 @@ downloaded_files_path = sys.argv[11]
 processed_files_folder = sys.argv[12]
 username = sys.argv[13]
 password = sys.argv[14]
+time_axis = sys.argv[15]
 
 extensions = {"ancillary": ancillary_ext,
               "narrow-swath": narrow_swath_ext,
@@ -51,7 +52,7 @@ if (not os.path.exists(dataset_paths[1])) & (username=="") & (password==""): # E
     password = input("")
 
 args = [
-    [temporary_gdf_pickle, name, str(resolution), processed_files_folder, extensions["lidar"], country], # LIDAR
+    [temporary_gdf_pickle, name, str(resolution), processed_files_folder, extensions["lidar"], country, time_axis], # LIDAR
     [temporary_gdf_pickle, start, end, name, processed_files_folder, str(bbox_size), extensions["narrow-swath"], username, password, downloaded_files_path], # ECOSTRESS
     [temporary_gdf_pickle, start, end, name, processed_files_folder, str(bbox_size), extensions["multispectral"], downloaded_files_path] # SENTINEL 2 MSI
 ]

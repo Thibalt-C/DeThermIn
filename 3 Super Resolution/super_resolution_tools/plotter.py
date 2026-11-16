@@ -6,59 +6,136 @@ import matplotlib.gridspec as gridspec
 import matplotlib.patheffects as path_effects
 
 
-def plot_test_predictions(pred, dataset, filepath=None):
+def plot_test_predictions(
+    pred,
+    dataset,
+    filepath=None,
+    max_pixels=4_000_000,
+):
 
-    dataset["pred"] = xr.DataArray(pred, dims=("y", "x"), coords={"y": dataset.y, "x": dataset.x})
-    dataset = dataset.where(dataset.pred.notnull(), drop=True)
+    ny, nx = dataset.sizes["y"], dataset.sizes["x"]
 
-    true = dataset.LST_ground.values
-    pred = dataset.pred.values
-    residuals = true - pred
-    coarse_LST = dataset.fine_LST
-
-    fig = plt.figure(figsize=(10, 16), dpi=400)
-    gs = gridspec.GridSpec(
-        4, 1,
-        figure=fig,
-        hspace=0.01
+    factor = max(
+        1,
+        int(np.ceil(np.sqrt((ny * nx) / max_pixels)))
     )
 
-    axes = [fig.add_subplot(gs[0]), fig.add_subplot(gs[1]), fig.add_subplot(gs[2]), fig.add_subplot(gs[3])]
-    axes[0].imshow(coarse_LST, cmap='RdYlBu_r', vmin=np.nanmin(true), vmax=np.nanmax(true))
-    axes[1].imshow(true, cmap='RdYlBu_r', vmin=np.nanmin(true), vmax=np.nanmax(true))
-    im1=axes[2].imshow(pred, cmap='RdYlBu_r', vmin=np.nanmin(true), vmax=np.nanmax(true))
-    im2=axes[3].imshow(residuals, cmap='RdBu_r', vmin=-np.nanmax(abs(residuals)), vmax=np.nanmax(abs(residuals)))
+    if factor > 1:
+        dataset = dataset.isel(
+            y=slice(None, None, factor),
+            x=slice(None, None, factor)
+        )
+        pred = pred[::factor, ::factor]
 
-    add_scale(axes[3], pred, resol=2)
+    dataset["pred"] = xr.DataArray(
+        pred.astype(np.float32),
+        dims=("y", "x"),
+        coords={
+            "y": dataset.y,
+            "x": dataset.x,
+        },
+    )
 
-    cbar_ax1 = fig.add_axes([0.3, 0.09, 0.4, 0.009])  # top colorbar
-    cbar_ax2 = fig.add_axes([0.3, 0.01, 0.4, 0.009])  # bottom colorbar
-    fig.colorbar(im1, cax=cbar_ax1, orientation='horizontal',
-                 label="Land Surface Temperature [°C]")
-    fig.colorbar(im2, cax=cbar_ax2, orientation='horizontal',
-                 label="Residuals (model - ground truth) [°C]")
+    dataset = dataset.where(dataset.pred.notnull(), drop=True)
 
-    letters = ["a", "b", "c", "d"]
+    true = dataset.LST_ground.astype(np.float32).values
+    pred = dataset.pred.astype(np.float32).values
+
+    residuals = true - pred
+
+    tmin = np.nanmin(true)
+    tmax = np.nanmax(true)
+    rmax = np.nanmax(np.abs(residuals))
+
+    fig = plt.figure(figsize=(10, 12), dpi=300)
+
+    gs = gridspec.GridSpec(
+        3,
+        1,
+        figure=fig,
+        hspace=0.01,
+    )
+
+    axes = [
+        fig.add_subplot(gs[0]),
+        fig.add_subplot(gs[1]),
+        fig.add_subplot(gs[2]),
+    ]
+
+    axes[0].imshow(
+        true,
+        cmap="RdYlBu_r",
+        vmin=tmin,
+        vmax=tmax,
+    )
+
+    im1 = axes[1].imshow(
+        pred,
+        cmap="RdYlBu_r",
+        vmin=tmin,
+        vmax=tmax,
+    )
+
+    im2 = axes[2].imshow(
+        residuals,
+        cmap="RdBu_r",
+        vmin=-rmax,
+        vmax=rmax,
+    )
+
+    add_scale(axes[2], pred, resol=2 * factor)
+
+    cbar_ax1 = fig.add_axes([0.3, 0.09, 0.4, 0.009])
+    cbar_ax2 = fig.add_axes([0.3, 0.04, 0.4, 0.009])
+
+    fig.colorbar(
+        im1,
+        cax=cbar_ax1,
+        orientation="horizontal",
+        label="Land Surface Temperature [°C]",
+    )
+
+    fig.colorbar(
+        im2,
+        cax=cbar_ax2,
+        orientation="horizontal",
+        label="Residuals (model - ground truth) [°C]",
+    )
+
+    letters = ["a", "b", "c"]
 
     for ax, letter in zip(axes, letters):
         ax.axis("off")
+
         txt = ax.text(
-            0.02, 0.95, letter,
+            0.02,
+            0.95,
+            letter,
             transform=ax.transAxes,
             fontsize=16,
             fontweight="bold",
             va="top",
-            color="white"
+            color="white",
         )
+
         txt.set_path_effects([
-            path_effects.Stroke(linewidth=2, foreground="black"),
-            path_effects.Normal()
+            path_effects.Stroke(
+                linewidth=2,
+                foreground="black",
+            ),
+            path_effects.Normal(),
         ])
 
     if filepath is not None:
-        fig.savefig(filepath, bbox_inches="tight", dpi=300)
+        fig.savefig(
+            filepath,
+            bbox_inches="tight",
+            dpi=300,
+        )
+        plt.close(fig)
     else:
         plt.show()
+        plt.close(fig)
 
 
 def add_scale(ax, y_pred_test, resol, scale_size=100):

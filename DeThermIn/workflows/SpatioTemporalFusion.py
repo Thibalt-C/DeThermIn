@@ -52,7 +52,8 @@ def launch_DTC_fitting(
 def launch_unmixing(
         narrow_swath_filepath : str,
         dtc_fitted_filepath : str,
-        day : datetime = None
+        day : datetime = None,
+        time_axis : np.ndarray = None
 ) -> DataCube :
 
     if day is None:
@@ -61,6 +62,9 @@ def launch_unmixing(
             print(f"[{n}] {day.strftime('%Y-%m-%d')}")
         n = input("Please select a day: ")
         day = available_days[int(n)]
+
+    if time_axis is not None:
+        time_axis = str(time_axis.to_numpy())
 
     process = subprocess.Popen(["python", metadata["fusion_script"],
                                 narrow_swath_filepath,
@@ -71,7 +75,8 @@ def launch_unmixing(
                                 parameters["fusion_window_size"],
                                 parameters["fusion_alpha_time"],
                                 parameters["fusion_alpha_space"],
-                                parameters["fusion_k"]
+                                parameters["fusion_k"],
+                                str(time_axis)
                                 ],
                                cwd=os.path.join(os.path.curdir, metadata["fusion_path"]),
                                stdout=subprocess.PIPE,

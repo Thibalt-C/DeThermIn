@@ -8,5 +8,5 @@ filepath = parameters["processed_data_path"] + "2_3573_48_9222_06_01_2026_08_31_
 
 dc = read_datacube(filepath)
 
-dc.plot("SR_LST", orthoimage_background=False, gridlines=False,
+dc.plot("SR_LST_dynamic", orthoimage_background=False, gridlines=False,
         savefig=path+"DeThermIn_example.gif")

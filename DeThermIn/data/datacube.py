@@ -208,9 +208,15 @@ class DataCube:
             raise Exception(f"Layer {layer} not found in datacube.")
 
         if layer == "orthoimage":
-            ax = plot_orthophoto(self.data, ax=ax)
+            if 'time' in self.data[layer].dims:
+                ax = plot_orthophoto(self.data.isel(time=0), ax=ax)
+            else:
+                ax = plot_orthophoto(self.data, ax=ax)
             if show_scale:
-                add_scale(ax, self)
+                if "scale_size" in kwargs.keys():
+                    add_scale(ax, self, scale_size=kwargs["scale_size"])
+                else:
+                    add_scale(ax, self)
             return ax
 
         elif (self.data[layer].dims != ('y','x')) & ('time' not in self.data[layer].dims):

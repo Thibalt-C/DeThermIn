@@ -128,9 +128,12 @@ def plot_timeseries(
         label = f"{dataset[attribute].attrs["standard_name"]} [{dataset[attribute].attrs['units']}]"
     else:
         label = attribute
-    quadmesh.colorbar.set_label(label, fontsize=16, labelpad=-10)
-    quadmesh.colorbar.set_ticks([vmin, vmax])
-    quadmesh.colorbar.ax.tick_params(labelsize=16)
+    try:
+        quadmesh.colorbar.set_label(label, fontsize=16, labelpad=-10)
+        quadmesh.colorbar.set_ticks([vmin, vmax])
+        quadmesh.colorbar.ax.tick_params(labelsize=16)
+    except:
+        pass
     plt.draw()
     ani = FuncAnimation(fig, update, frames=len(dataset.time), interval=500)
     plt.tight_layout()

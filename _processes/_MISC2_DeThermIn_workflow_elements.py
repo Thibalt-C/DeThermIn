@@ -21,7 +21,7 @@ ancillary_dc = read_datacube(f"{filepath}_{extensions['blended_ancillary_data']}
 
 
 narrow_swath = narrow_swath_dc.data.median("time").LST
-geostationary = geostationary_dc.data.rio.reproject(geostationary_dc.data.rio.crs).median("time").LST
+geostationary = geostationary_dc.data.rio.write_crs(geostationary_dc.data.rio.crs).median("time").LST
 
 H, W = geostationary.shape
 
@@ -100,7 +100,7 @@ fig, ax = plt.subplots(figsize=(10, 6))
 dx = 300
 dy = 50
 
-sel = ancillary_dc.data.sel(sun_elevation=22.5, sun_azimuth=135)
+sel = ancillary_dc.data.sel(sun_elevation=20, sun_azimuth=135)
 
 layers = ["SVF", "shadow", "NDVI", "buildings_mask", "DHM"]
 
@@ -113,7 +113,7 @@ for n, layer in enumerate(layers):
     extent = [i*dx, i*dx + ancillary_dc.data.rio.shape[1], i*dy, i*dy + ancillary_dc.data.rio.shape[0]]
     ax.imshow(im, cmap=im.plot_kwargs["cmap"], extent=extent)
 
-ax.text(0, 1300, "ancillary data\n2 m", ha="left", fontsize=20)
+ax.text(0, 2050, "ancillary data\n1 m", ha="left", fontsize=20)
 
 ax.set_xlim([0, (len(layers)-1)*dx + ancillary_dc.data.rio.shape[1]])
 ax.set_ylim([0, (len(layers)-1)*dy + ancillary_dc.data.rio.shape[0]])
@@ -151,7 +151,7 @@ fig.savefig(path+"workflow_element_4.png", bbox_inches="tight", dpi=300)
 tot = len(DeThermIn_dc.data.time)
 
 
-ims = DeThermIn_dc.data.SR_LST.where(DeThermIn_dc.data.SR_LST.notnull(), drop=True)
+ims = DeThermIn_dc.data.SR_LST_dynamic.where(DeThermIn_dc.data.SR_LST_dynamic.notnull(), drop=True)
 dx = 5; dy = 5
 fig, ax = plt.subplots(figsize=(6, 7))
 for t in range(tot):
@@ -160,7 +160,7 @@ for t in range(tot):
     ax.imshow(ims.isel(time=t).values,
               cmap="RdYlBu_r",
               extent=extent, alpha=1, aspect="equal")
-ax.text((tot-1)*dx + ims.values.shape[1], (tot-1)*dy + ims.values.shape[2], " DeThermIn \n 2 m / 1 h", fontsize=20, ha="left", va="top")
+ax.text((tot-1)*dx + ims.values.shape[1], (tot-1)*dy + ims.values.shape[2], " DeThermIn \n 1 m / 1 h", fontsize=20, ha="left", va="top")
 ax.set_xlim([0, (tot-1)*dx + ims.values.shape[2]])
 ax.set_ylim([0, (tot-1)*dy + ims.values.shape[1]])
 ax.axis("off")
@@ -173,9 +173,9 @@ fig, ax = plt.subplots(figsize=(10, 6))
 dx = 300
 dy = 50
 
-sel = DeThermIn_dc.data.sel(sun_elevation=22.5, sun_azimuth=135).isel(time=6)
+sel = DeThermIn_dc.data.sel(sun_elevation=20, sun_azimuth=135).isel(time=6)
 
-layers = ["cold_spot_distance", "brightness", "illumination", "irradiance",  "energy_3h"]
+layers = ["cold_spot_distance", "brightness_corrected", "vegetation", "irradiance",  "energy_1h"]
 
 for n, layer in enumerate(layers):
 
@@ -186,7 +186,7 @@ for n, layer in enumerate(layers):
     extent = [i*dx, i*dx + DeThermIn_dc.data.rio.shape[1], i*dy, i*dy + DeThermIn_dc.data.rio.shape[0]]
     ax.imshow(im, cmap=im.plot_kwargs["cmap"], extent=extent)
 
-ax.text(0, 1300, "extra-features\n2 m", ha="left", fontsize=20)
+ax.text(0, 2050, "extra-features\n1 m", ha="left", fontsize=20)
 
 ax.set_xlim([0, (len(layers)-1)*dx + DeThermIn_dc.data.rio.shape[1]])
 ax.set_ylim([0, (len(layers)-1)*dy + DeThermIn_dc.data.rio.shape[0]])

@@ -3,7 +3,7 @@ from ..error_quantifiers import evaluate, rmse
 from ..plotter import plot_residuals, plot_train_curve, plot_test_predictions
 from ..models import CustomLinearRegression
 from xarray import Dataset
-from typing import Tuple, Optional, Dict, List
+from typing import Optional, Dict, List
 
 
 def process(

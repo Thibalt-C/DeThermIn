@@ -40,7 +40,7 @@ def main():
                    "standard_name": "Super-Resolution Land Surface Temperature",
                    "units": "°C"}
 
-    dataset["SR_LST"] = preds
+    dataset[f"SR_LST_{mode}"] = preds
     SR_dataset_path = dataset_path.replace(enriched_ext, end_product_ext).replace(training_ready_ext, end_product_ext)
 
     pickle.dump(dataset, open(SR_dataset_path, "wb"))

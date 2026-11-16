@@ -19,7 +19,8 @@ def pre_process(
         end : Optional[datetime.datetime] = end,
         resolution : Optional[float] = resolution,
         bbox_size : Optional[float] = bbox_size,
-        geostationary_path : Optional[str] = None
+        geostationary_path : Optional[str] = None,
+        time_axis : Optional[pd.DatetimeIndex] = None
 ) -> Tuple[DataCube, DataCube, DataCube] :
     """
     Launches the pre-processing workflows.
@@ -38,6 +39,8 @@ def pre_process(
         Size of the larger bounding box around the location of interest for LST downloads, in meters
     geostationary_path : string, optional
         Path to the geostationary data
+    time_axis : `pandas.DatetimeIndex`, optional
+        List of timestamps to compute the shadow. If None, all combinations of shadows are computed.
 
     Returns:
     ----------
@@ -59,7 +62,7 @@ def pre_process(
         raise Exception("The geostationary data has not been downloaded. Please use the `predownload` command first.")
 
     geos_dc = read_datacube(geostationary_path)
-    ancillary_dc = PP.launch_data_blending(gdf, start, end, resolution, bbox_size)
+    ancillary_dc = PP.launch_data_blending(gdf, start, end, resolution, bbox_size, time_axis)
     datacubes = ancillary_dc.find_attached_datacubes(mode="dict")
     narrow_swath_dc = read_datacube(datacubes["narrow-swath"]["filepath"])
     geostationary_dc = PP.find_geostationary_data(geos_dc, narrow_swath_dc)
@@ -90,10 +93,11 @@ def DTC_fitting(geostationary_dc : DataCube) -> DataCube :
 def spatio_temporal_fusion(
         narrow_swath_dc : DataCube,
         dtc_fitted_dc : DataCube,
-        day : datetime.datetime = None,
+        day : Optional[datetime.datetime] = None,
+        time_axis : Optional[pd.DatetimeIndex] = None
 ) -> DataCube :
 
-    fusioned_dc = STF.launch_unmixing(narrow_swath_dc.filepath, dtc_fitted_dc.filepath, day)
+    fusioned_dc = STF.launch_unmixing(narrow_swath_dc.filepath, dtc_fitted_dc.filepath, day, time_axis)
 
     return fusioned_dc
 
@@ -139,16 +143,20 @@ def get_training_datacube(
     # pre-processing and DTC-fitting if necessary
     dtc_fitted_dc_path = ground_truth_dc.filepath.replace(extensions["ground_truth"], extensions["DTC-fitted"])
     narrow_swath_dc_path = ground_truth_dc.filepath.replace(extensions["ground_truth"], extensions["narrow-swath"])
+    day = pd.to_datetime(ground_truth_dc.data.time.values)
     if not os.path.exists(dtc_fitted_dc_path):
-        day = pd.to_datetime(ground_truth_dc.data.time.values)
         start = day - datetime.timedelta(days=time_extent//2)
         end = day + datetime.timedelta(days=time_extent//2)
         gdf = ground_truth_dc.get_gdf()
         geos_dc = T.download_geostationary_data(start, end, gdf)
+        time_axis = pd.date_range(datetime.datetime(2021,6,15,8),
+                                  datetime.datetime(2021,6,15,13),
+                                  freq="15min")
         ancillary_dc, narrow_swath_dc, geostationary_dc = pre_process(gdf,
                                                                       start, end,
                                                                       resolution, bbox_size,
-                                                                      geos_dc.filepath
+                                                                      geos_dc.filepath,
+                                                                      time_axis
                                                                       )
         dtc_fitted_dc = DTC_fitting(geostationary_dc)
 
@@ -159,7 +167,11 @@ def get_training_datacube(
     # spatio-temporal fusion if necessary
     fusioned_dc_path = dtc_fitted_dc.filepath.replace(extensions["DTC-fitted"], extensions["fusioned_LSTs"])
     if not os.path.exists(fusioned_dc_path):
-        fusioned_dc = spatio_temporal_fusion(narrow_swath_dc, dtc_fitted_dc, day)
+        time_axis = pd.date_range(
+            datetime.datetime(2021,6,15,11),
+            datetime.datetime(2021,6,15,11)
+        )
+        fusioned_dc = spatio_temporal_fusion(narrow_swath_dc, dtc_fitted_dc, day, time_axis)
     else:
         fusioned_dc = read_datacube(fusioned_dc_path)
 

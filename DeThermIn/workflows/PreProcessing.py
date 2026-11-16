@@ -10,6 +10,7 @@ import os
 import sys
 import pickle
 from datetime import datetime
+from pandas import DatetimeIndex
 from geopandas import GeoDataFrame
 from ..data import read_datacube, DataCube
 from ..metadata import metadata, extensions, parameters, available_areas
@@ -19,7 +20,8 @@ def launch_data_blending(
         start : datetime,
         end : datetime,
         resolution : float,
-        bbox_size : float
+        bbox_size : float,
+        time_axis : DatetimeIndex = None
 ) -> DataCube :
 
     if not sys.stdin.isatty():
@@ -32,6 +34,9 @@ def launch_data_blending(
     depth  = len(os.path.split(metadata["data_blending_path"]))
     gdf_pickle_path =  metadata["geofeatures_path"] + gdf_pickle
     pickle.dump(gdf, open(gdf_pickle_path, "wb"))
+
+    if time_axis is not None:
+        time_axis = time_axis.to_numpy()
 
     country = available_areas.loc[available_areas.geometry.intersects(gdf.union_all())].reset_index(drop=True).iloc[0]["country"]
 
@@ -49,7 +54,8 @@ def launch_data_blending(
                                 parameters["downloaded_data_path"],
                                 parameters["processed_data_path"],
                                 username,
-                                password
+                                password,
+                                str(time_axis),
                                 ],
                                cwd=os.path.join(os.path.curdir, metadata["data_blending_path"]),
                                stdout=subprocess.PIPE,

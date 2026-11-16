@@ -6,7 +6,7 @@ import sys
 import multiprocessing
 from sr_workflow import model_path
 import json
-
+import xarray as xr
 
 def main():
 
@@ -23,7 +23,7 @@ def main():
     dataset = pickle.load(open(dataset_path, "rb"))
 
     sample = dataset.sel(
-        time=datetime.datetime(2021, 6, 15, 11),
+        time=datetime.datetime(2021, 6, 15, 11, 0),
         method="nearest"
     )
 
@@ -51,9 +51,6 @@ def main():
                 result[k] = str(result[k])
             with open(f"results/{key}.json", "w") as f:
                 json.dump(result, f, indent=4)
-
-        else:
-            print(f"Model already exists for features set '{key}'. Skipping...")
 
     print("\n-> Super-Resolution training is done.")
 

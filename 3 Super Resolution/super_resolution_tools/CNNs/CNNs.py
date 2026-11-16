@@ -6,7 +6,6 @@ from ..error_quantifiers import multi_scale_ssim
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-
 # Convolutional block and residual block
 
 class DoubleConv(nn.Module):
@@ -149,18 +148,18 @@ class ResUNet(pl.LightningModule):
         return self.last_conv(x4_up)
 
     def compute_loss(self, outputs, labels):
-        mse = self.criterion(outputs, labels)
+        mae = self.criterion(outputs, labels)
         ssim_loss = 1 - multi_scale_ssim(outputs, labels)
-        return mse + self.hparams.lambda_ssim * ssim_loss, mse, ssim_loss
+        return mae + self.hparams.lambda_ssim * ssim_loss, mae, ssim_loss
 
     def training_step(self, batch, batch_idx):
         x, y = batch
         out = self(x)
-        loss, mse, ssim_loss = self.compute_loss(out, y)
+        loss, mae, ssim_loss = self.compute_loss(out, y)
         self.train_losses.append(loss.item())
 
         self.log("train_loss", loss)
-        self.log("train_mse", mse, prog_bar=True, on_step=False, on_epoch=True)
+        self.log("train_mae", mae, prog_bar=True, on_step=False, on_epoch=True)
         self.log("train_ssim_loss", ssim_loss)
 
         return loss
@@ -168,15 +167,38 @@ class ResUNet(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = batch
         out = self(x)
-        loss, mse, ssim_loss = self.compute_loss(out, y)
+        loss, mae, ssim_loss = self.compute_loss(out, y)
         self.val_losses.append(loss.item())
 
         self.log("val_loss", loss)
-        self.log("val_mse", mse, prog_bar=True, on_step=False, on_epoch=True)
+        self.log("val_mae", mae, prog_bar=True, on_step=False, on_epoch=True)
         self.log("val_ssim_loss", ssim_loss)
 
     def configure_optimizers(self):
-        return optim.Adam(self.parameters(), lr=self.hparams.lr)
+
+        optimizer = optim.Adam(
+            self.parameters(),
+            lr=self.hparams.lr
+        )
+
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode="min",
+            factor=0.2,
+            patience=2,
+            threshold=1e-3,
+            min_lr=1e-6
+        )
+
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_loss",
+                "interval": "epoch",
+                "frequency": 1,
+            },
+        }
 
 
 # Data loader

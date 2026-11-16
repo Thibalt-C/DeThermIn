@@ -23,7 +23,7 @@ def main():
 
     test = dataset.where(
         dataset.test_mask, drop=True
-    ).sel(time=datetime.datetime(2021,6,15, 11), method="nearest")
+    )
 
     pred = model.predict(test)
 

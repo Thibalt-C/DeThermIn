@@ -3,6 +3,7 @@ from fusion_tools import import_dataset, spatio_temporal_unmixing
 import pickle
 import sys
 import os
+import pandas as pd
 
 narrow_swath_path = sys.argv[1]
 DTC_fitted_path = sys.argv[2]
@@ -13,6 +14,11 @@ window_size = int(sys.argv[6])
 alpha_time = float(sys.argv[7])
 alpha_space = float(sys.argv[8])
 k = float(sys.argv[9])
+if sys.argv[10] != "None":
+    time_axis = pd.to_datetime(sys.argv[10].replace("\n","").replace("'","").replace("[","").replace("]","").split(" "))
+else:
+    time_axis = None
+
 
 fusioned_path = narrow_swath_path.replace(narrow_swath_ext, fusioned_ext)
 
@@ -27,7 +33,8 @@ else:
     coarse_dataset = import_dataset(DTC_fitted_path)
 
     synthetic_LST = spatio_temporal_unmixing(coarse_dataset, fine_dataset, day,
-                                             alpha_space, alpha_time, k, window_size
+                                             alpha_space, alpha_time, k, window_size,
+                                             time_axis
                                              )
 
     pickle.dump(synthetic_LST, open(fusioned_path, "wb"))

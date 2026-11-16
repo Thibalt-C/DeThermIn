@@ -7,6 +7,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import RichProgressBar
 from typing import Tuple, Optional, Dict, List
 from xarray import Dataset
+from pytorch_lightning.callbacks import EarlyStopping
 
 def process(
         dataset : Dataset,
@@ -28,9 +29,6 @@ def process(
 
     # splits the dataset into train, test and validation -> 3x 3D arrays: H, W, C
     X_train, X_test, X_valid, y_train, y_test, y_valid = train_test_split(X, y, dataset)
-
-    # saves the original shape for later evaluation
-    true = y_test.squeeze()
 
     # Patch extraction -> 3x 4D arrays: N_patches, H, W, C
     stride = patch_size // 2 # cannot be changed!
@@ -59,7 +57,7 @@ def process(
         logger=False,
         enable_checkpointing=False,
         enable_progress_bar=True,
-        callbacks=[RichProgressBar()])
+        callbacks=[RichProgressBar(), EarlyStopping(monitor="val_loss", patience=15, mode="min", verbose=False)])
 
     # fits the model with the data loaded
     trainer.fit(model, dm)
@@ -71,8 +69,9 @@ def process(
     trained_model = TrainedResUNet(model, features, batch_size, epochs, patch_size, scaler)
 
     # predicts the test set and evaluates the model in terms of metrics
-    dataset_test = dataset.where(dataset.test_mask)
+    dataset_test = dataset.where(dataset.test_mask, drop=True)
     pred = trained_model.predict(dataset_test)
+    true = dataset_test.LST_ground.values
     result = evaluate(pred, true)
 
     # makes plots if requested

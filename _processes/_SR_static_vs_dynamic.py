@@ -19,7 +19,7 @@ def main():
     dataset_path = os.path.join(processed_data_path, f"{name}_{extension}.pkl")
     dataset = pickle.load(open(dataset_path, "rb"))
     small_dataset = deepcopy(dataset)
-    small_dataset = small_dataset.rio.clip_box(*(1.43, 43.605, 1.445, 43.615), crs="EPSG:4326")
+    small_dataset = small_dataset.rio.clip_box(*(1.44, 43.61, 1.445, 43.615), crs="EPSG:4326")
 
     static_model = pickle.load(open(f"{model_path}ResUNet_static_model.pkl", "rb"))
     dynamic_model = pickle.load(open(f"{model_path}ResUNet_dynamic_model.pkl", "rb"))
