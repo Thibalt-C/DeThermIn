@@ -179,7 +179,7 @@ Finally, the user will be asked to choose among the existing trained deep-neural
 
 The super-resolution is made independently for each timestamp of the time series. It uses the ancillary data as well as the downscaled hourly 70 m LST. The used models are based on a U-Net architecture [(Ronneberger et al., 2015)](#references), with implemented residual blocks [(He et al., 2016)](#references) inside.
 
-![Architecture of our super-resolution model](_figures/ResUNet.pdf)
+![Architecture of our super-resolution model](_figures/ResUNet.png)
 
 When processed, a time series with LST at the resolution of the ancillary data is produced. 
 
