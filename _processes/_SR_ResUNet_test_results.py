@@ -23,7 +23,7 @@ def main():
 
     test = dataset.where(
         dataset.test_mask, drop=True
-    )
+    ).isel(time=0)
 
     pred = model.predict(test)
 

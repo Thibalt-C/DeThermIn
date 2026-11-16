@@ -19,23 +19,23 @@ def main():
     dataset_path = os.path.join(processed_data_path, f"{name}_{extension}.pkl")
     dataset = pickle.load(open(dataset_path, "rb"))
     small_dataset = deepcopy(dataset)
-    small_dataset = small_dataset.rio.clip_box(*(1.44, 43.61, 1.445, 43.615), crs="EPSG:4326")
+    small_dataset = small_dataset.rio.clip_box(*(1.44, 43.61, 1.445, 43.615), crs="EPSG:4326").isel(time=0)
 
     static_model = pickle.load(open(f"{model_path}ResUNet_static_model.pkl", "rb"))
     dynamic_model = pickle.load(open(f"{model_path}ResUNet_dynamic_model.pkl", "rb"))
 
 
-    LST_static = static_model.predict(small_dataset.isel(time=8))
-    LST_dynamic = dynamic_model.predict(small_dataset.isel(time=8))
+    LST_static = static_model.predict(small_dataset)
+    LST_dynamic = dynamic_model.predict(small_dataset)
 
     small_dataset["LST_static"] = xr.DataArray(LST_static, dims=("y", "x"))
     small_dataset["LST_dynamic"] = xr.DataArray(LST_dynamic, dims=("y", "x"))
 
     fig, axes = plt.subplots(2, 2, figsize=(10, 5))
-    small_dataset.isel(time=5).energy_1h.plot(ax=axes[0, 0], cmap="jet")
+    small_dataset.energy_1h.plot(ax=axes[0, 0], cmap="jet")
     small_dataset.LST_dynamic.plot(cmap="RdYlBu_r", ax=axes[0, 1],
                                   cbar_kwargs={"label": "Land Surface Temperature °C]"})
-    small_dataset.brightness.plot(ax=axes[1, 0], cmap="grey")
+    small_dataset.brightness_corrected.plot(ax=axes[1, 0], cmap="grey")
     small_dataset.LST_static.plot(cmap="RdYlBu_r", ax=axes[1, 1],
                                  cbar_kwargs={"label": "Land Surface Temperature [°C]"})
 
