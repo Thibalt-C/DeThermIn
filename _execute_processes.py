@@ -12,10 +12,10 @@ path = str(BASE_DIR / "_figures") + "/"
 
 CWDs = {
     #"_DATA_": BASE_DIR,
-    #"_MISC_": BASE_DIR,
+    "_MISC_": BASE_DIR,
     #"_SPECS_": BASE_DIR
     #"_FUSION_": BASE_DIR / metadata["fusion_path"],
-    "_SR_": BASE_DIR / metadata["super_resolution_path"]
+    #"_SR_": BASE_DIR / metadata["super_resolution_path"]
 }
 
 extra_args = {

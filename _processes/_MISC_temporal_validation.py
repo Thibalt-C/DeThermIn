@@ -6,6 +6,7 @@ import datetime
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.patheffects as path_effects
+from matplotlib.patches import Patch
 
 from DeThermIn import read_datacube
 from DeThermIn.metadata import start, end, extensions
@@ -109,7 +110,8 @@ for coord, file in zip(coords, files):
     fig = plt.figure(figsize=(17, 7))
     gs = gridspec.GridSpec(5,8, fig, height_ratios=[0.9, 0.1, 0.5, 0.5, 0.05])
 
-    axes = [fig.add_subplot(gs[0, :6]),
+    axes = [fig.add_subplot(gs[0, :4]),
+            fig.add_subplot(gs[0, 4:6]),
             fig.add_subplot(gs[0, 6:])]
 
     space = fig.add_subplot(gs[1, :])
@@ -156,9 +158,34 @@ for coord, file in zip(coords, files):
     axes[0].grid(True)
     axes[0].legend(loc="upper right")
 
-    dc.plot("orthoimage", ax=axes[1], scale_size=100)
+    layers = [
+        #("Water", dc.data.isel(time=0).water_mask),
+        ("Vegetated", dc.data.isel(time=0).vegetalized),
+        ("Artificial", dc.data.isel(time=0).artificial),
+        ("Bare soil", dc.data.isel(time=0).mineralized)
+    ]
+    handles = []
+    for label, layer in layers:
+        cmap = plt.get_cmap(layer.plot_kwargs["cmap"])
+        layer.where(layer).plot.imshow(cmap=cmap, ax=axes[1], add_colorbar=False)
+        handles.append(
+            Patch(
+                facecolor=cmap(0.5),  # ou cmap(1.0)
+                edgecolor="black",
+                label=label,
+            )
+        )
+
+    dc.data.isel(time=0).vegetation.where(dc.data.isel(time=0).vegetation>=1).plot(ax=axes[1], cmap="Greens", vmax=1, add_colorbar=False)
+    handles.append(Patch(facecolor=plt.get_cmap("Greens")(1.0), edgecolor="black", label="Vegetation density \n≥1pt/pixel"))
+
+    axes[1].legend(handles=handles, loc="upper right")
     axes[1].set_title("")
-    axes[1].scatter(dc.data.x[len(dc.data.x)//2], dc.data.y[len(dc.data.y)//2], marker="o", edgecolors="k", c="w", s=150)
+    axes[1].axis("off")
+
+    dc.plot("orthoimage", ax=axes[2], scale_size=50)
+    axes[2].set_title("")
+    axes[2].scatter(dc.data.x[len(dc.data.x)//2], dc.data.y[len(dc.data.y)//2], marker="o", edgecolors="k", c="w", s=150)
 
 
     for n, ax in enumerate(LST_static_axes):
@@ -187,7 +214,7 @@ for coord, file in zip(coords, files):
     cbar.set_ticks([vmin, vmax])
     cbar.set_ticklabels([vmin, vmax])
 
-    for ax, letter in zip(axes, ["a", "b"]):
+    for ax, letter in zip(axes, ["a", "b", "c"]):
         txt = ax.text(
             0.02, 0.95, letter,
             transform=ax.transAxes,
@@ -201,7 +228,7 @@ for coord, file in zip(coords, files):
             path_effects.Normal()
         ])
 
-        for ax, letter in zip([LST_static_axes[0], LST_dynamic_axes[0]], ["c", "d"]):
+        for ax, letter in zip([LST_static_axes[0], LST_dynamic_axes[0]], ["d", "e"]):
             txt = ax.text(
                 0.02, 0.95, letter,
                 transform=ax.transAxes,
